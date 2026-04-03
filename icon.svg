@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1d4ed8"/>
+  <rect x="40" y="200" width="432" height="112" rx="12" fill="#1e40af"/>
+  <text x="256" y="175" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="120" font-weight="700" fill="white" text-anchor="middle"
+        dominant-baseline="middle">PT</text>
+  <text x="256" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="72" font-weight="600" fill="#93c5fd" text-anchor="middle"
+        dominant-baseline="middle">→ ES</text>
+  <text x="256" y="375" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="48" fill="#bfdbfe" text-anchor="middle"
+        dominant-baseline="middle">Colombia</text>
+</svg>

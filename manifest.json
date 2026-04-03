@@ -1,0 +1,19 @@
+{
+  "name": "Tradutor PT → ES Colombiano",
+  "short_name": "Tradutor",
+  "description": "Tradutor de Português para Espanhol Colombiano natural",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
