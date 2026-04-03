@@ -1,0 +1,19 @@
+{
+  "name": "Chimba — PT para ES",
+  "short_name": "Chimba",
+  "description": "Tradutor de Português para Espanhol Colombiano",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FCD116",
+  "theme_color": "#003893",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
