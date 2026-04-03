@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Tradutor">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="apple-mobile-web-app-title" content="Chimba">
+  <meta name="theme-color" content="#003893">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.svg">
-  <title>PT → ES Colombiano</title>
+  <title>Chimba — PT → ES</title>
   <style>
     :root {
-      --blue: #1d4ed8;
-      --blue-dark: #1e40af;
+      --blue: #003893;
+      --blue-dark: #002d75;
       --blue-light: #dbeafe;
-      --blue-pale: #eff6ff;
+      --blue-pale: #f0f4ff;
       --green: #059669;
       --green-light: #d1fae5;
       --red: #dc2626;
@@ -55,7 +55,7 @@
 
     /* ── Header ─────────────────────────── */
     header {
-      background: var(--blue);
+      background: linear-gradient(135deg, #003893 0%, #002d75 100%);
       color: #fff;
       padding: 16px 20px;
       padding-top: calc(16px + env(safe-area-inset-top));
@@ -444,7 +444,7 @@
 <header>
   <div class="header-title">
     <span class="flags">🇧🇷→🇨🇴</span>
-    <h1>Tradutor</h1>
+    <h1>Chimba</h1>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
     <div class="key-status missing" id="key-status">
@@ -504,7 +504,7 @@
     ></div>
   </div>
 
-  <footer>Powered by Claude · Chave armazenada localmente</footer>
+  <footer>Chimba 🇨🇴 · Powered by Claude · Chave armazenada localmente</footer>
 
 </main>
 

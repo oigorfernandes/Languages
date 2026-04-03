@@ -1,12 +1,12 @@
 {
-  "name": "Tradutor PT → ES Colombiano",
-  "short_name": "Tradutor",
-  "description": "Tradutor de Português para Espanhol Colombiano natural",
+  "name": "Chimba — PT para ES",
+  "short_name": "Chimba",
+  "description": "Tradutor de Português para Espanhol Colombiano",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1d4ed8",
+  "background_color": "#FCD116",
+  "theme_color": "#003893",
   "orientation": "portrait-primary",
   "icons": [
     {
