@@ -1,4 +1,4 @@
-const CACHE = 'tradutor-v1';
+const CACHE = 'chimba-v2';
 const SHELL = ['./index.html', './manifest.json', './icon.svg', './sw.js'];
 
 self.addEventListener('install', e => {
