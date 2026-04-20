@@ -1,4 +1,4 @@
-const CACHE = 'chimba-v2';
+const CACHE = 'chimba-v3';
 const SHELL = ['./index.html', './manifest.json', './icon.svg', './sw.js'];
 
 self.addEventListener('install', e => {
