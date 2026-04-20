@@ -261,6 +261,23 @@
     .error-banner.on { display:flex; }
     @media (prefers-color-scheme:dark) { .error-banner { color:#f87171; } }
 
+    /* ── Toast ─────────────────────────────────── */
+    .toast {
+      position:fixed; bottom:calc(32px + env(safe-area-inset-bottom));
+      left:50%; transform:translateX(-50%) translateY(12px);
+      background:rgba(5,150,105,.92);
+      backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+      color:#fff; font-size:14px; font-weight:700;
+      padding:10px 20px; border-radius:var(--r-pill);
+      box-shadow:0 4px 20px rgba(5,150,105,.4);
+      opacity:0; pointer-events:none; white-space:nowrap;
+      transition:opacity .22s, transform .22s cubic-bezier(.34,1.56,.64,1);
+      z-index:200;
+    }
+    .toast.show {
+      opacity:1; transform:translateX(-50%) translateY(0);
+    }
+
     /* ── Footer ────────────────────────────────── */
     footer {
       text-align:center; font-size:11px; color:var(--placeholder);
@@ -410,6 +427,8 @@
   <footer>Chimba 🇨🇴 · Powered by Claude · Chave armazenada localmente</footer>
 </main>
 
+<div class="toast" id="toast">✅ Copiado!</div>
+
 <script>
   // ── Config ───────────────────────────────────────
   const CONFIGS = {
@@ -554,12 +573,20 @@
     }
   }
 
-  // ── Copy ─────────────────────────────────────────
-  btnCopy.addEventListener('click', async () => {
-    const t = outputEl.textContent.trim();
-    if (!t) return;
+  // ── Toast ────────────────────────────────────────
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg = '✅ Copiado!') {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  // ── Copy helper ──────────────────────────────────
+  async function copyText(text) {
     try {
-      await navigator.clipboard.writeText(t);
+      await navigator.clipboard.writeText(text);
     } catch {
       const r = document.createRange();
       r.selectNode(outputEl);
@@ -568,6 +595,13 @@
       document.execCommand('copy');
       sel.removeAllRanges();
     }
+  }
+
+  // ── Copy button ──────────────────────────────────
+  btnCopy.addEventListener('click', async () => {
+    const t = outputEl.textContent.trim();
+    if (!t) return;
+    await copyText(t);
     btnCopy.textContent = '✅ Copiado!';
     btnCopy.classList.add('copied');
     setTimeout(() => { btnCopy.textContent = '📋 Copiar'; btnCopy.classList.remove('copied'); }, 2200);
@@ -615,6 +649,8 @@
       const out = data.content?.[0]?.text;
       if (!out) throw new Error('Resposta inesperada da API.');
       outputEl.textContent = out;
+      await copyText(out);
+      showToast('✅ Copiado!');
 
     } catch (e) {
       showErr(e.name === 'TypeError' ? 'Sem conexão com a internet ou a API está inacessível.' : e.message);
