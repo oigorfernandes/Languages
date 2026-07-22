@@ -1,6 +1,5 @@
 ---
-name: email-mkt
-description: Transforma um layout de e-mail marketing (JPEG/PNG) em HTML pronto para disparo — fatia a imagem, monta tabelas de 600px compatíveis com Gmail/Outlook/mobile e insere os links. Use sempre que o usuário enviar uma imagem de peça de e-mail marketing pedindo o HTML, em português ou inglês. / Turns an email-marketing layout image (JPEG/PNG) into send-ready HTML — slices the image, builds 600px email-safe tables and wires up the links. Trigger whenever the user sends an email-marketing layout image asking for HTML, in Portuguese or English.
+description: IRIS — transforma um layout de e-mail marketing (JPEG/PNG) em HTML pronto para disparo — fatia a imagem, monta tabelas de 600px compatíveis com Gmail/Outlook/mobile e insere os links. / Turns an email-marketing layout image into send-ready sliced HTML with links. PT/EN.
 ---
 
 # E-mail Marketing: imagem → HTML / image → HTML
@@ -68,17 +67,11 @@ im.crop((x1, y1, x2, y2)).save('images/HEADER.png')
 
 ## Verificação (obrigatória antes de entregar)
 
-1. Renderizar com o Chromium headless disponível em `/opt/pw-browsers/`:
-   ```
-   /opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell \
-     --headless --disable-gpu --no-sandbox --hide-scrollbars \
-     --window-size=600,3300 --screenshot=preview.png "file://<caminho>/index.html"
-   ```
+1. Renderizar o `index.html` em um navegador headless disponível no ambiente (Chromium/Chrome com `--headless --screenshot`, Playwright ou equivalente), com viewport de 600px de largura e altura suficiente para a peça inteira.
 2. Comparar o screenshot com o layout original seção por seção: textos idênticos (números de telefone, placeholders, títulos), cores, ordem dos blocos.
 3. Corrigir divergências e re-renderizar até bater.
 
 ## Entrega
 
-1. Salvar a pasta da peça em `email-marketing/` no repositório, commitar e fazer push na branch de trabalho.
-2. Zipar a pasta e enviar ao usuário com `SendUserFile` (zip como `attach`, preview como `render`).
-3. Resumo final: o que virou imagem vs. texto, quais links foram aplicados, quais ficaram `#LINK`, e qualquer divergência ou suspeita encontrada no layout.
+1. Salvar a pasta da peça em `email-marketing/` no repositório e commitar na branch de trabalho.
+2. Resumo final: o que virou imagem vs. texto, quais links foram aplicados, quais ficaram `#LINK`, e qualquer divergência ou suspeita encontrada no layout.
