@@ -80,9 +80,9 @@ Checkpoint before moving on: count frames = count slices, then announce in chat:
 
 **Step 5 — Export.** Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
 
-**Step 6 — HTML.** Build the `index.html` referencing `images/NAME.png` with `width` = 1x size.
+**Step 6 — HTML.** Build the `index.html` referencing `images/NAME.png` with `width` = 1x size. **Do NOT save it to a file** — in this environment files land in a directory the user cannot access, so a file is a lost deliverable.
 
-**Step 7 — Verify and deliver** (sections below). The run is NOT finished until the complete `index.html` has been pasted in the chat — do this without being asked.
+**Step 7 — Verify and deliver** (sections below). The run is NOT finished until the complete `index.html` has been pasted IN THE CHAT as a fenced code block — do this without being asked. Pasting in the chat is the ONLY valid delivery.
 
 If the layout changes later, the export frames stay valid — just re-export.
 
@@ -166,6 +166,6 @@ Walk the frame top to bottom and confirm in the generated HTML, section by secti
 
 ## Delivery (end of every run — automatic, never wait to be asked)
 
-1. **Always paste the complete `index.html` in a copy-ready code block, unprompted** — this is mandatory in every run, even if a downloadable file is also possible, and even if the user hasn't asked for it. A run that ends without the pasted code is an incomplete run.
+1. **Paste the complete `index.html` IN THE CHAT as a fenced code block, unprompted.** This is the ONLY valid delivery of the code. **Never deliver it as a saved file** — files go to a directory the user cannot reach, so "I saved index.html" counts as NOT delivered. If the code is long, paste it anyway, in one block (or split sequential blocks if the message limit forces it). A run that ends without the pasted code is an incomplete run.
 2. Asset map: file name → export frame → scale.
 3. Summary: what became image vs. live text, links applied vs. `#LINK`, and any divergence or suspicion found in the layout.
