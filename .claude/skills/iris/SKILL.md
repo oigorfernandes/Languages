@@ -12,7 +12,9 @@ comments) follows the language of the submitted layout.
 
 ## Entradas / Inputs
 
-1. **Obrigatório:** uma imagem JPEG/PNG do layout completo do e-mail (idealmente 600px de largura; se vier maior, redimensionar mantendo proporção).
+1. **Obrigatório (uma das duas):**
+   - uma imagem JPEG/PNG do layout completo do e-mail (idealmente 600px de largura; se vier maior, redimensionar mantendo proporção); **ou**
+   - um **link do Figma** para o frame do layout. Nesse caso, use as ferramentas do Figma MCP: `get_screenshot` para a visão geral, `get_design_context`/`get_metadata` para textos, cores e fontes exatos das camadas, e `download_assets` para exportar as fatias de imagem em 2x direto dos nós — preferindo sempre os dados do arquivo aos valores amostrados por pixel.
 2. **Opcional:** lista de links (URL de cada botão/área clicável). Sem links, usar o placeholder `#LINK` em todos os CTAs.
 3. **Opcional:** nome da campanha para batizar a pasta (senão, derivar do nome do arquivo).
 
