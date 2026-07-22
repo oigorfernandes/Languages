@@ -55,12 +55,21 @@ Classifique cada seção vertical do frame:
 
 Regra de ouro: maximizar texto vivo (entregabilidade e acessibilidade) e usar imagem só onde há arte real. E-mail 100% imagem cai em spam — se o usuário insistir em imagem única, atenda, mas avise do risco.
 
-## Assets
+## Assets — frames de exportação (fluxo padrão)
 
-- Exportar cada nó de arte como PNG **em 2x**, exibido no HTML com `width` = tamanho em 1x.
-- Nomes em ASCII, MAIÚSCULOS, sem acento: `HEADER.png`, `BANNER01.png`, `ICON1.png`, `CARTAO.png`.
-- No HTML, referenciar como `images/NOME.png`.
-- Se o ambiente não permitir exportar/empacotar arquivos, liste ao usuário exatamente quais nós exportar, com que nome e em que escala, para ele exportar pelo próprio Figma.
+Não tente exportar recortes arbitrários dos nós. Em vez disso, **crie frames de exportação diretamente no arquivo do Figma**:
+
+1. Crie uma página (ou seção) separada chamada **`IRIS EXPORT`** — nunca misturar com o layout.
+2. Para cada fatia do e-mail, crie ali um frame com:
+   - **nome exatamente igual ao arquivo esperado** (sem extensão): `LOGO-TOPO`, `HEADER`, `BANNER01`, `SQUARES`, `ICON1`...
+   - **tamanho 1x exato da fatia** (ex.: 600×90 para a faixa do logo, 600 de largura para seções full-width);
+   - **clip content ativado** (senão o export sai com sobras);
+   - o conteúdo correspondente do layout posicionado dentro (instância/cópia da arte);
+   - **export setting PNG em 2x** já configurado no frame.
+3. Exporte os frames você mesmo se o ambiente permitir; senão, avise o usuário que é só selecionar a página `IRIS EXPORT` e fazer batch-export — os arquivos já saem com nome e escala certos.
+4. No HTML, referencie como `images/NOME.png`, com `width` = tamanho em 1x.
+
+Nomes sempre em ASCII, MAIÚSCULOS, sem acento. Se o layout mudar depois, os frames de export continuam válidos — basta re-exportar.
 
 ## Links
 
