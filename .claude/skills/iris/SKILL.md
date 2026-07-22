@@ -37,6 +37,7 @@ Analise a imagem e classifique cada seção vertical:
 
 | Seção | Tratamento |
 |---|---|
+| Faixa do logo no topo | **Fatia separada** do restante do header, com link próprio (padrão Carrefour: mesmo quando o logo está sobre a arte, cortar a faixa horizontal do logo como imagem à parte — as fatias empilham sem emenda com `display:block`) |
 | Header/banner com foto e arte | **Imagem fatiada** (largura 600px), com link |
 | Saudação, parágrafos, títulos coloridos | **Texto vivo em HTML** (cor/tamanho copiados do layout) |
 | Blocos de fundo colorido com texto | `<td bgcolor>` + texto vivo dentro |

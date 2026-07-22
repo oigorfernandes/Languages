@@ -44,6 +44,7 @@ Classifique cada seção vertical do frame:
 
 | Seção | Tratamento |
 |---|---|
+| Faixa do logo no topo | **Fatia separada** do restante do header, com link próprio (padrão Carrefour: mesmo quando o logo está sobre a arte, cortar a faixa horizontal do logo como imagem à parte — as fatias empilham sem emenda com `display:block`) |
 | Header/banner com foto e arte | **Imagem exportada** (600px de largura, exportar em 2x), com link |
 | Saudação, parágrafos, títulos coloridos | **Texto vivo em HTML** (cor/tamanho das camadas) |
 | Blocos de fundo colorido com texto | `<td bgcolor>` + texto vivo dentro |
