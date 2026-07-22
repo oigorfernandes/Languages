@@ -1,89 +1,128 @@
 ---
 name: iris
-description: IRIS — transforma um layout de e-mail marketing (frame do Figma ou imagem JPEG/PNG) em HTML pronto para disparo — decide o que vira texto vivo e o que vira imagem, monta tabelas de 600px compatíveis com Gmail/Outlook/mobile e insere os links. Use sempre que o usuário apontar um frame de e-mail marketing pedindo o HTML, em português ou inglês. / IRIS — turns an email-marketing layout (Figma frame or JPEG/PNG image) into send-ready HTML: decides what becomes live text vs. image, builds 600px email-safe tables and wires up the links. Trigger whenever the user points at an email-marketing frame asking for HTML, in Portuguese or English.
+description: IRIS — transforma um layout de e-mail marketing (frame do Figma ou imagem JPEG/PNG) em HTML pronto para disparo — decide o que vira texto vivo e o que vira imagem, monta tabelas de 600px compatíveis com Gmail/Outlook/mobile e insere os links. Use sempre que o usuário apontar um frame de e-mail marketing pedindo o HTML, em português ou inglês. / IRIS — turns an email-marketing layout (Figma frame or JPEG/PNG image) into send-ready HTML. Trigger whenever the user points at an email-marketing frame asking for HTML, in Portuguese or English.
 ---
 
 # IRIS · E-mail Marketing: layout → HTML
 
-Versão para o agente do Figma. Responda no idioma que o usuário usar
-(português ou inglês). Todo o conteúdo do e-mail (alt texts, comentários)
-segue o idioma do layout.
-Figma-agent version. Reply in the user's language (PT or EN). All email
-content follows the language of the layout.
+Responda no idioma do usuário (PT ou EN). Todo o conteúdo do e-mail (alt texts, comentários) segue o idioma do layout. / Reply in the user's language; email content follows the layout's language.
 
-## Entradas / Inputs
+## Entradas
 
-1. **Obrigatório:** o frame do layout do e-mail — o frame selecionado/apontado pelo usuário no arquivo atual, ou um link para o frame. (Fallback: uma imagem JPEG/PNG anexada, se não houver frame.)
-2. **Opcional:** lista de links (URL de cada botão/área clicável). Sem links, usar o placeholder `#LINK` em todos os CTAs.
-3. **Opcional:** nome da campanha para batizar os arquivos (senão, derivar do nome do frame).
-
-Se faltar apenas os links, NÃO bloqueie: monte tudo com `#LINK` e avise no final que é só mandar os links que você substitui.
+1. **Obrigatório:** o frame do layout do e-mail — selecionado/apontado pelo usuário no arquivo atual (fallback: imagem JPEG/PNG anexada).
+2. **Opcional:** lista de links. Sem links, usar `#LINK` em todos os CTAs — não bloqueie por falta de links; avise no final que é só mandar as URLs.
+3. **Opcional:** nome da campanha (senão, derivar do nome do frame).
 
 ## Fonte da verdade: as camadas, não os pixels
 
-Trabalhando dentro do Figma, extraia tudo do próprio arquivo:
+- **Textos:** copiar exatamente das camadas de texto, incluindo tokens de personalização (`[NOME]`, `%%PRINOME%%`) — nunca inventar valores; manter `[R$ x.xxx]`, `XX de XX` etc. como estão.
+- **Cores:** hex exatos dos fills.
+- **Tipografia:** anotar peso/tamanho, mas no HTML usar só Arial/Helvetica.
+- **Medidas:** larguras, paddings e raios direto das propriedades dos frames.
 
-- **Textos**: copiar o conteúdo exato das camadas de texto (incluindo tokens de personalização como `[NOME]` ou `%%PRINOME%%` — nunca inventar valores).
-- **Cores**: usar os fills/hex exatos das camadas (fundos, textos, botões).
-- **Tipografia**: anotar peso e tamanho de cada texto, mas no HTML usar apenas Arial/Helvetica (e-mail não carrega webfonts) — mapeie o peso (bold/regular) e o tamanho aproximado.
-- **Medidas**: larguras, paddings e raios de borda direto das propriedades dos frames.
-
-## Padrão de código (obrigatório ler `REFERENCE.html` desta skill antes de montar)
-
-O arquivo `REFERENCE.html` incluído nesta skill é uma peça real e canônica. Siga a estrutura dele:
-
-- Tabela externa de **600px** (`role="presentation"`, `cellpadding/cellspacing=0`), centrada, `max-width:100%`.
-- `<head>` com os mesmos resets, media query mobile (480px, classe `.stack`) e dark mode (`prefers-color-scheme` + `[data-ogsc]`).
-- Fontes: Arial/Helvetica apenas. CSS inline em cada elemento (e-mail não confia em `<style>` para o corpo).
-- Tag `<custom name="opencounter" type="tracking"/>` logo após `<body>` (Salesforce Marketing Cloud).
-- Rodapé institucional: seguir o bloco de rodapé do `REFERENCE.html` (contatos, sociais, aviso legal), adaptando textos ao layout novo.
-
-## Decisão de fatiamento (o coração do trabalho)
-
-Classifique cada seção vertical do frame:
+## Decisão de fatiamento
 
 | Seção | Tratamento |
 |---|---|
-| Faixa do logo no topo | **Fatia separada** do restante do header, com link próprio (padrão Carrefour: mesmo quando o logo está sobre a arte, cortar a faixa horizontal do logo como imagem à parte — as fatias empilham sem emenda com `display:block`) |
-| Header/banner com foto e arte | **Imagem exportada** (600px de largura, exportar em 2x), com link |
-| Saudação, parágrafos, títulos coloridos | **Texto vivo em HTML** (cor/tamanho das camadas) |
+| Faixa do logo no topo | **Fatia separada** do restante do header, com link próprio — mesmo quando o logo está sobre a arte (padrão Carrefour); fatias empilham sem emenda com `display:block` |
+| Header/banner com foto e arte | **Imagem** (600px de largura), com link |
+| Saudação, parágrafos, títulos | **Texto vivo** (cor/tamanho das camadas) |
 | Blocos de fundo colorido com texto | `<td bgcolor>` + texto vivo dentro |
-| Ícones pequenos, cartão, mockup de celular | Imagens pequenas exportadas dos nós, dentro de tabelas |
-| Botões/CTAs retangulares simples | **Botão em HTML** (`<a>` com bgcolor, border-radius, padding) |
-| Badges App Store/Google Play | Imagens pequenas com links separados quando os links vierem separados |
-| Rodapé institucional | **Texto vivo** seguindo o `REFERENCE.html` |
+| Ícones, cartão, mockup de celular | Imagens pequenas dentro de tabelas |
+| Botões/CTAs retangulares | **Botão em HTML** (`<a>` com bgcolor, border-radius, padding) |
+| Rodapé institucional | **Texto vivo** |
 
-Regra de ouro: maximizar texto vivo (entregabilidade e acessibilidade) e usar imagem só onde há arte real. E-mail 100% imagem cai em spam — se o usuário insistir em imagem única, atenda, mas avise do risco.
+Regra de ouro: maximizar texto vivo (entregabilidade, acessibilidade); imagem só onde há arte real. E-mail 100% imagem cai em spam — se o usuário insistir, atenda e avise do risco.
 
 ## Assets — frames de exportação (fluxo padrão)
 
-Não tente exportar recortes arbitrários dos nós. Em vez disso, **crie frames de exportação diretamente no arquivo do Figma**:
+Não exporte recortes arbitrários dos nós. Crie **frames de exportação no arquivo**:
 
-1. Crie uma página (ou seção) separada chamada **`IRIS EXPORT`** — nunca misturar com o layout.
-2. Para cada fatia do e-mail, crie ali um frame com:
-   - **nome exatamente igual ao arquivo esperado** (sem extensão): `LOGO-TOPO`, `HEADER`, `BANNER01`, `SQUARES`, `ICON1`...
-   - **tamanho 1x exato da fatia** (ex.: 600×90 para a faixa do logo, 600 de largura para seções full-width);
-   - **clip content ativado** (senão o export sai com sobras);
-   - o conteúdo correspondente do layout posicionado dentro (instância/cópia da arte);
-   - **export setting PNG em 2x** já configurado no frame.
-3. Exporte os frames você mesmo se o ambiente permitir; senão, avise o usuário que é só selecionar a página `IRIS EXPORT` e fazer batch-export — os arquivos já saem com nome e escala certos.
-4. No HTML, referencie como `images/NOME.png`, com `width` = tamanho em 1x.
+1. Página (ou seção) separada chamada **`IRIS EXPORT`**.
+2. Um frame por fatia: **nome igual ao arquivo esperado** sem extensão (`LOGO-TOPO`, `HEADER`, `BANNER01`, `SQUARES`, `ICON1`...), **tamanho 1x exato** (ex.: 600×90 para a faixa do logo), **clip content ativado**, conteúdo do layout posicionado dentro, **export setting PNG 2x**.
+3. Exporte você mesmo se possível; senão, instrua o usuário a fazer batch-export da página `IRIS EXPORT`.
+4. No HTML: `images/NOME.png` com `width` = tamanho 1x. Nomes ASCII, MAIÚSCULOS, sem acento.
 
-Nomes sempre em ASCII, MAIÚSCULOS, sem acento. Se o layout mudar depois, os frames de export continuam válidos — basta re-exportar.
+## Padrão de código (esqueleto obrigatório)
 
-## Links
+```html
+<!DOCTYPE html>
+<html lang="pt-br" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1" name="viewport">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta content="telephone=no" name="format-detection">
+  <title>Email Personalizado Salesforce</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <style type="text/css">
+    html, body { margin:0 !important; padding:0 !important; height:100% !important; width:100% !important; }
+    * { -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%; }
+    table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse !important; }
+    img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; display:block; }
+    a { text-decoration:none; }
+    body { background-color:#ffffff; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; }
+    .container { width:100% !important; max-width:600px !important; margin:0 auto !important; }
+    @media only screen and (max-width: 480px) {
+      .container { width:100% !important; max-width:100% !important; }
+      .stack { display:block !important; width:100% !important; max-width:100% !important; }
+      .stack td { display:block !important; width:100% !important; max-width:100% !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .dm-bg { background-color:#111111 !important; } .dm-bg2 { background-color:#1b1b1b !important; }
+      .dm-txt { color:#ffffff !important; }
+    }
+    [data-ogsc] .dm-bg { background-color:#111111 !important; }
+    [data-ogsc] .dm-bg2 { background-color:#1b1b1b !important; }
+    [data-ogsc] .dm-txt { color:#ffffff !important; }
+  </style>
+</head>
+<body style="width:100%; padding:0; margin:0; max-width:100%;">
+<custom name="opencounter" type="tracking"/>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:100%; margin:0 auto;">
 
-- Cada área clicável indicada pelo usuário vira `<a href="..." target="_blank">` envolvendo a fatia ou o botão.
-- Sem link informado → `href="#LINK"`.
-- Telefones no rodapé: `href="tel:..."` sem espaços.
-- Nunca inventar URLs. Se uma URL parecer errada (domínio de outra marca etc.), usar mesmo assim e apontar a suspeita no resumo final.
+      <!-- fatia de imagem (ex.: logo, header, banner) -->
+      <tr><td align="center" style="padding:0;">
+        <a href="#LINK" target="_blank">
+          <img src="images/HEADER.png" width="600" alt="descrever a arte" border="0"
+               style="display:block; width:600px; max-width:100%; height:auto;" />
+        </a>
+      </td></tr>
+
+      <!-- bloco de texto vivo sobre fundo colorido -->
+      <tr><td align="center" bgcolor="#HEXFUNDO" style="background-color:#HEXFUNDO; padding:36px 20px 40px 20px;">
+        <table role="presentation" width="550" cellpadding="0" cellspacing="0" border="0" align="center" style="width:550px; max-width:100%;">
+          <tr><td align="center" style="font-family:Arial,sans-serif; font-size:27px; font-weight:700; line-height:130%; color:#FFFFFF;">Título do layout</td></tr>
+          <tr><td height="28" style="font-size:0; line-height:0;">&nbsp;</td></tr>
+          <tr><td align="center">
+            <a href="#LINK" target="_blank" style="background-color:#FFFFFF; color:#HEXFUNDO; text-decoration:none; font-family:Arial,sans-serif; font-size:16px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; display:inline-block; border-radius:10px; padding:15px 70px;">Texto do botão</a>
+          </td></tr>
+        </table>
+      </td></tr>
+
+      <!-- rodapé institucional: td bgcolor da marca contendo tabelas de contatos
+           (tel: sem espaços), ícones sociais, bloco "RACISMO É CRIME." e texto legal
+           em 12px branco. Seguir o rodapé das peças já aprovadas da marca. -->
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+```
+
+Placeholders de personalização sempre intocados. Telefones como `href="tel:08001234567"`. Nunca inventar URLs — se uma URL do layout parecer errada (marca trocada etc.), reproduza e sinalize no resumo.
 
 ## Verificação (obrigatória antes de entregar)
 
-Sem navegador disponível, a conferência é contra as camadas: percorra o frame de cima a baixo e confirme, seção por seção, que o HTML gerado tem (1) os mesmos textos, palavra por palavra — telefones, placeholders, títulos; (2) as mesmas cores hex; (3) a mesma ordem de blocos; (4) todos os pontos clicáveis com link ou `#LINK`. Corrija qualquer divergência antes de entregar.
+Percorra o frame de cima a baixo e confirme no HTML gerado, seção por seção: (1) textos idênticos palavra por palavra — telefones, placeholders, títulos; (2) mesmos hex; (3) mesma ordem de blocos; (4) todo ponto clicável com link ou `#LINK`. Corrija divergências antes de entregar.
 
 ## Entrega
 
-1. Entregar o `index.html` completo (arquivo para download se o ambiente permitir; senão, em bloco de código).
-2. Junto, a lista de assets: nome do arquivo → nó do Figma → escala de export.
-3. Resumo final: o que virou imagem vs. texto, quais links foram aplicados, quais ficaram `#LINK`, e qualquer divergência ou suspeita encontrada no layout.
+1. `index.html` completo (arquivo para download se possível; senão, bloco de código).
+2. Lista de assets: nome do arquivo → frame de export → escala.
+3. Resumo: o que virou imagem vs. texto, links aplicados vs. `#LINK`, e qualquer divergência ou suspeita encontrada no layout.
