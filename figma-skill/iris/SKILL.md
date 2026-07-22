@@ -29,7 +29,20 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 - **Typography:** note weight/size, but the HTML uses Arial/Helvetica only.
 - **Measurements:** widths, paddings, corner radii from the frame properties.
 
-## Slicing decisions
+## Rendering modes — decide BEFORE slicing
+
+Different clients demand different builds. There are two modes, and the whole slice plan depends on this choice, so it must be settled before any execution:
+
+**Mode A — LIVE TEXT** (e.g. Carrefour / Atacadão / Sam's Club): maximize text in code. Best deliverability and accessibility. Use the slicing table below.
+
+**Mode B — IMAGE** (e.g. LATAM): the client requires their proprietary font, so everything renders as sliced images — EXCEPT anything dynamic/personalized (`%%PRINOME%%`, variable values, dates to fill), which physically cannot be an image and stays as live text styled with the closest safe font (Arial). Additional rules for this mode:
+- Slice at every logical section boundary AND at every distinct clickable area (each link needs its own slice).
+- Rich, complete `alt` text on every slice — with images blocked, the alt texts ARE the email.
+- Warn the user once per run that image-heavy emails have a higher spam-filter risk, then proceed.
+
+**How to decide:** if the user named the mode or the client, apply it (remember: Carrefour Group brands → Mode A; LATAM → Mode B). Otherwise, ask ONE short question before executing — "Live-text build (Carrefour style) or image build (LATAM style, proprietary fonts)?" — and only then start. This is the only question allowed besides frame ambiguity.
+
+## Slicing decisions (Mode A — LIVE TEXT)
 
 | Section | Treatment |
 |---|---|
@@ -41,15 +54,19 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 | Simple rectangular buttons/CTAs | **HTML button** (`<a>` with bgcolor, border-radius, padding) |
 | Institutional footer | **Live text** |
 
-Golden rule: maximize live text (deliverability, accessibility); use images only where there is real artwork. An all-image email lands in spam — if the user insists, comply but warn.
+Golden rule for Mode A: maximize live text; use images only where there is real artwork.
+
+In Mode B this table is overridden: every row becomes "image slice" except dynamic/personalized content and any block containing placeholders, which stay live text.
 
 ## Workflow — follow these steps IN ORDER, never skip step 3
 
 **Step 1 — Greet** (see above) and resolve the input frame.
 
-**Step 2 — Slice plan.** Analyze the layout and produce the slice list: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
+**Step 2 — Rendering mode.** Settle Mode A (live text) vs Mode B (image) per the "Rendering modes" section. If it can't be inferred from the request or the client name, ask the one-line question and wait for the answer before anything else.
 
-**Step 3 — BUILD THE `IRIS EXPORT` PAGE. Mandatory. Do NOT write any HTML before this step is done.**
+**Step 3 — Slice plan.** Analyze the layout and produce the slice list according to the chosen mode: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
+
+**Step 4 — BUILD THE `IRIS EXPORT` PAGE. Mandatory. Do NOT write any HTML before this step is done.**
 
 For each slice in the plan:
 
@@ -61,11 +78,11 @@ For each slice in the plan:
 
 Checkpoint before moving on: count frames = count slices, then announce in chat: "IRIS EXPORT page ready with N frames: …". If the environment truly cannot create pages/frames, SAY SO explicitly and output the slice list with coordinates for manual cropping — never skip silently.
 
-**Step 4 — Export.** Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
+**Step 5 — Export.** Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
 
-**Step 5 — HTML.** Build the `index.html` referencing `images/NAME.png` with `width` = 1x size.
+**Step 6 — HTML.** Build the `index.html` referencing `images/NAME.png` with `width` = 1x size.
 
-**Step 6 — Verify and deliver** (sections below).
+**Step 7 — Verify and deliver** (sections below). The run is NOT finished until the complete `index.html` has been pasted in the chat — do this without being asked.
 
 If the layout changes later, the export frames stay valid — just re-export.
 
@@ -147,8 +164,8 @@ Personalization placeholders always untouched. Phones as `href="tel:08001234567"
 
 Walk the frame top to bottom and confirm in the generated HTML, section by section: (1) texts identical word for word — phone numbers, placeholders, titles; (2) same hex colors; (3) same block order; (4) every clickable area has a link or `#LINK`. Fix divergences before delivering.
 
-## Delivery (end of every run)
+## Delivery (end of every run — automatic, never wait to be asked)
 
-1. **Always paste the complete `index.html` in a copy-ready code block** — this is mandatory in every run, even if a downloadable file is also possible. The user copies this code at the end of the work session.
+1. **Always paste the complete `index.html` in a copy-ready code block, unprompted** — this is mandatory in every run, even if a downloadable file is also possible, and even if the user hasn't asked for it. A run that ends without the pasted code is an incomplete run.
 2. Asset map: file name → export frame → scale.
 3. Summary: what became image vs. live text, links applied vs. `#LINK`, and any divergence or suspicion found in the layout.

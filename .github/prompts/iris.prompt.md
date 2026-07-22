@@ -30,7 +30,18 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 - Tag `<custom name="opencounter" type="tracking"/>` logo após `<body>` (Salesforce Marketing Cloud).
 - Placeholders de personalização entre colchetes: `[NOME]`, `[R$ x.xxx]` etc. — nunca inventar valores.
 
-## Decisão de fatiamento (o coração do trabalho)
+## Modo de renderização — decidir ANTES de fatiar
+
+Clientes diferentes exigem builds diferentes:
+
+- **Modo A — TEXTO VIVO** (ex.: Carrefour, Atacadão, Sam's Club): máximo de texto no código. Usa a tabela de fatiamento abaixo.
+- **Modo B — IMAGEM** (ex.: LATAM): o cliente exige a fonte proprietária, então tudo vira imagem fatiada — EXCETO conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis), que não pode ser imagem e fica em texto vivo com Arial. Nesse modo: fatiar em cada fronteira de seção E em cada área clicável distinta (cada link precisa da própria fatia); alt text rico e completo em toda fatia; avisar uma vez sobre o risco maior de spam e seguir.
+
+Se o usuário nomeou o modo ou o cliente, aplique (marcas do Grupo Carrefour → Modo A; LATAM → Modo B). Senão, faça UMA pergunta curta antes de executar: "Build em texto vivo (estilo Carrefour) ou em imagem (estilo LATAM, fonte proprietária)?".
+
+## Decisão de fatiamento — Modo A (o coração do trabalho)
+
+No Modo B esta tabela é sobrescrita: toda linha vira "fatia de imagem", exceto conteúdo dinâmico/personalizado e blocos com placeholders, que ficam em texto vivo.
 
 Analise a imagem e classifique cada seção vertical:
 
