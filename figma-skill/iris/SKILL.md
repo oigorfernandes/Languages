@@ -43,14 +43,29 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 
 Golden rule: maximize live text (deliverability, accessibility); use images only where there is real artwork. An all-image email lands in spam — if the user insists, comply but warn.
 
-## Assets — export frames (standard flow)
+## Workflow — follow these steps IN ORDER, never skip step 3
 
-Do not try to export arbitrary crops of nodes. Create **export frames inside the file**:
+**Step 1 — Greet** (see above) and resolve the input frame.
 
-1. A separate page (or section) named **`IRIS EXPORT`** — never mixed with the layout.
-2. One frame per slice: **name identical to the expected file** without extension (`LOGO-TOPO`, `HEADER`, `BANNER01`, `SQUARES`, `ICON1`…), **exact 1x size** (e.g. 600×90 for the logo strip), **clip content on**, the corresponding artwork placed inside, **PNG export setting at 2x** already configured.
-3. Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
-4. In the HTML, reference `images/NAME.png` with `width` = 1x size. Names always ASCII, UPPERCASE, no accents.
+**Step 2 — Slice plan.** Analyze the layout and produce the slice list: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
+
+**Step 3 — BUILD THE `IRIS EXPORT` PAGE. Mandatory. Do NOT write any HTML before this step is done.**
+
+For each slice in the plan:
+
+1. Create (or reuse) a page named **`IRIS EXPORT`**. If it already has frames from another campaign, group the new ones under a section named after this campaign.
+2. Create a frame named **exactly** the file name without extension (`LOGO-TOPO`, `HEADER`, `BANNER01`, `SQUARES`, `ICON1`…) — ASCII, UPPERCASE, no accents.
+3. Set the frame to the slice's **exact 1x size** (e.g. 600×90) and turn **clip content ON**.
+4. **Fill it with the artwork using the negative-offset technique:** paste a COPY of the source artwork (the whole header group/image is fine) inside the frame and set the copy's position to `(-x, -y)` of the slice — the frame's clipping then shows exactly the slice region. Do not try to crop the artwork itself.
+5. Add a **PNG export setting at 2x** on the frame.
+
+Checkpoint before moving on: count frames = count slices, then announce in chat: "IRIS EXPORT page ready with N frames: …". If the environment truly cannot create pages/frames, SAY SO explicitly and output the slice list with coordinates for manual cropping — never skip silently.
+
+**Step 4 — Export.** Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
+
+**Step 5 — HTML.** Build the `index.html` referencing `images/NAME.png` with `width` = 1x size.
+
+**Step 6 — Verify and deliver** (sections below).
 
 If the layout changes later, the export frames stay valid — just re-export.
 
