@@ -1,0 +1,2 @@
+Coloque aqui suas imagens (capas dos projetos, sua foto, etc.).
+Depois aponte para elas no content.js, assim: capa: "img/nome-do-arquivo.jpg"

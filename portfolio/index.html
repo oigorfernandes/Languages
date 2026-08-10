@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+
+  <!-- O título, a descrição e o favicon são preenchidos a partir de content.js -->
+  <title>Portfólio</title>
+  <meta name="description" content="">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="skip" href="#trabalhos">Pular para os trabalhos</a>
+
+<!-- ── Topo ───────────────────────────────────────────────────────── -->
+<header class="topo" id="topo">
+  <a class="logo" href="#" aria-label="Início">
+    <span class="logo-mark" id="logo-mark"></span>
+    <span class="logo-nome" id="logo-nome"></span>
+  </a>
+
+  <nav class="nav" id="nav" aria-label="Navegação principal"></nav>
+
+  <div class="topo-acoes">
+    <button class="btn-icone" id="btn-tema" aria-label="Alternar tema claro e escuro"></button>
+    <button class="btn-icone btn-menu" id="btn-menu" aria-label="Abrir menu" aria-expanded="false">
+      <span class="hamburguer"></span>
+    </button>
+  </div>
+</header>
+
+<!-- Menu em tela cheia (mobile) -->
+<div class="menu-mobile" id="menu-mobile" hidden></div>
+
+<main>
+
+  <!-- ── Abertura ─────────────────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="hero-conteudo">
+      <p class="selo" id="selo-disponivel" hidden><span class="ponto"></span><span id="selo-texto"></span></p>
+      <h1 class="hero-titulo" id="hero-titulo"></h1>
+      <p class="hero-sub" id="hero-sub"></p>
+      <div class="hero-botoes" id="hero-botoes"></div>
+    </div>
+    <div class="hero-rodape">
+      <span id="hero-papel"></span>
+      <span class="seta-baixo" aria-hidden="true">↓</span>
+      <span id="hero-local"></span>
+    </div>
+  </section>
+
+  <!-- ── Reel ─────────────────────────────────────────────────────── -->
+  <section class="reel" id="reel" hidden>
+    <div class="secao-cabeca">
+      <p class="etiqueta" id="reel-etiqueta"></p>
+      <h2 class="secao-titulo" id="reel-titulo"></h2>
+    </div>
+    <div class="reel-moldura" id="reel-moldura"></div>
+  </section>
+
+  <!-- ── Trabalhos ────────────────────────────────────────────────── -->
+  <section class="secao" id="trabalhos">
+    <div class="secao-cabeca">
+      <p class="etiqueta" id="trab-etiqueta"></p>
+      <h2 class="secao-titulo" id="trab-titulo"></h2>
+      <p class="secao-sub" id="trab-sub"></p>
+    </div>
+    <div class="filtros" id="filtros" role="tablist" aria-label="Filtrar por categoria"></div>
+    <div class="grade" id="grade"></div>
+  </section>
+
+  <!-- ── Clientes ─────────────────────────────────────────────────── -->
+  <section class="clientes" id="clientes" hidden>
+    <p class="etiqueta centro" id="clientes-titulo"></p>
+    <div class="marquee" id="marquee"></div>
+  </section>
+
+  <!-- ── Sobre ────────────────────────────────────────────────────── -->
+  <section class="secao" id="sobre">
+    <div class="sobre-grade">
+      <div class="sobre-midia">
+        <div class="sobre-foto" id="sobre-foto"></div>
+      </div>
+      <div class="sobre-texto">
+        <p class="etiqueta" id="sobre-etiqueta"></p>
+        <h2 class="secao-titulo" id="sobre-titulo"></h2>
+        <div class="prosa" id="sobre-paragrafos"></div>
+        <div class="numeros" id="sobre-numeros"></div>
+      </div>
+    </div>
+    <div class="habilidades" id="habilidades"></div>
+    <ol class="linha-tempo" id="linha-tempo"></ol>
+  </section>
+
+  <!-- ── Contato ──────────────────────────────────────────────────── -->
+  <section class="contato" id="contato">
+    <p class="etiqueta" id="contato-etiqueta"></p>
+    <h2 class="contato-titulo" id="contato-titulo"></h2>
+    <p class="contato-texto" id="contato-texto"></p>
+    <a class="btn btn-destaque btn-grande" id="contato-botao" href="#"></a>
+    <div class="redes" id="redes"></div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <span id="rodape-esq"></span>
+  <span id="rodape-dir"></span>
+</footer>
+
+<!-- ── Janela de projeto ──────────────────────────────────────────── -->
+<div class="modal" id="modal" hidden>
+  <button class="modal-fundo" id="modal-fundo" aria-label="Fechar"></button>
+  <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <button class="modal-x" id="modal-x" aria-label="Fechar">✕</button>
+    <div class="modal-midia" id="modal-midia"></div>
+    <div class="modal-corpo">
+      <p class="modal-meta" id="modal-meta"></p>
+      <h3 class="modal-titulo" id="modal-titulo"></h3>
+      <p class="modal-desc" id="modal-desc"></p>
+      <ul class="modal-creditos" id="modal-creditos"></ul>
+      <a class="btn btn-destaque" id="modal-link" href="#" target="_blank" rel="noopener" hidden>Ver online ↗</a>
+    </div>
+  </div>
+</div>
+
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
