@@ -29,20 +29,42 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 - **Typography:** note weight/size, but the HTML uses Arial/Helvetica only.
 - **Measurements:** widths, paddings, corner radii from the frame properties.
 
-## Rendering modes — decide BEFORE slicing
+## Client profiles — settle this BEFORE slicing
 
-Different clients demand different builds. There are two modes, and the whole slice plan depends on this choice, so it must be settled before any execution:
+**Standing rule for every client: 600px wide.** (LATAM once asked for 690px and reverted — never build 690px unless the user explicitly asks for it in this run.)
 
-**Mode A — LIVE TEXT** (e.g. Carrefour / Atacadão / Sam's Club): maximize text in code. Best deliverability and accessibility. Use the slicing table below.
+The whole slice plan depends on the client, so identify it first.
 
-**Mode B — IMAGE** (e.g. LATAM): the client requires their proprietary font, so everything renders as sliced images — EXCEPT anything dynamic/personalized (`%%PRINOME%%`, variable values, dates to fill), which physically cannot be an image and stays as live text styled with the closest safe font (Arial). Additional rules for this mode:
-- Slice at every logical section boundary AND at every distinct clickable area (each link needs its own slice).
-- Rich, complete `alt` text on every slice — with images blocked, the alt texts ARE the email.
-- Warn the user once per run that image-heavy emails have a higher spam-filter risk, then proceed.
+| Client | Build | CTAs | Particularities |
+|---|---|---|---|
+| **Carrefour** (also Atacadão, Sam's Club) | Text + images, favor HTML over images; simple layouts | In code | Logo strip sliced separately from the header |
+| **LATAM** | Text + images; complex banners and blocks as image | **As image** | Footer and preheader via AMPscript `ContentBlockByID` |
+| **SAAM** | Adapt the ready-made template ("Original Files") — see the SAAM branch below | Keep the template's | Preserve the original structure; swap in translated images; keep the code lean |
+| **Renner** | One large header image + the rest in HTML | In code | Simple layouts |
+| **Porto Bank** | Text + images | In code | Extra clean, well-organized code structure |
+| **RecargaPay** | Text + images, code whenever possible; some blocks as image | In code when possible | Little historical precedent — when in doubt, ask instead of assuming |
+| **Sicredi** | Text + images, code whenever possible; some blocks as image | In code when possible | — |
+| **BV** | More complex HTML, technical particularities | In code | **Mobile first**, explicit dark-mode treatment, preheader via AMPscript |
 
-**How to decide:** if the user named the mode or the client, apply it (remember: Carrefour Group brands → Mode A; LATAM → Mode B). Otherwise, ask ONE short question before executing — "Live-text build (Carrefour style) or image build (LATAM style, proprietary fonts)?" — and only then start. This is the only question allowed besides frame ambiguity.
+**SAAM ≠ Sam's Club.** Sam's Club is a Carrefour-group brand (first row); SAAM is its own client, with the template-adaptation flow.
 
-## Slicing decisions (Mode A — LIVE TEXT)
+**Unknown client:** if it isn't named and can't be inferred from the file/frame name or the branding in the layout, ask ONE short question — which client is this, or (if new) live-text build or image build? Never guess between two profiles. Together with frame ambiguity, these are the only questions allowed.
+
+**Image-heavy builds** (LATAM, or any run where most blocks are images): dynamic/personalized content (`%%PRINOME%%`, variable values, dates to fill) can never be an image — it stays live text in Arial. Slice at every section boundary AND at every distinct clickable area (one link = one slice). Write rich, complete `alt` text on every slice: with images blocked, the alt texts ARE the email. Warn once about the higher spam risk, then proceed.
+
+### AMPscript content blocks (LATAM, BV)
+
+Insert as `%%=ContentBlockByID("XXXXXX")=%%` at the exact position of the footer/preheader, leaving the ID as `XXXXXX` for the user to fill unless they provided it. Never rebuild in HTML a block the client delivers via ContentBlockByID.
+
+### Mobile first + dark mode (BV)
+
+Fluid tables (`width:100%` with `max-width:600px`), stacking as the default behavior via `.stack`, tap targets ≥44px, and every colored block carrying `.dm-bg`/`.dm-txt` classes with `[data-ogsc]` fallbacks. Check that logos and icons still read on a dark background.
+
+### SAAM branch — template adaptation, not slicing
+
+For SAAM, do not build from scratch: start from the provided "Original Files" template, keep its structure and class names, replace only texts and image sources (translated assets), and remove leftovers. The slice plan and export frames (steps 3–4) apply only to genuinely new images.
+
+## Slicing decisions (default table — text-in-code builds)
 
 | Section | Treatment |
 |---|---|
@@ -54,17 +76,17 @@ Different clients demand different builds. There are two modes, and the whole sl
 | Simple rectangular buttons/CTAs | **HTML button** (`<a>` with bgcolor, border-radius, padding) |
 | Institutional footer | **Live text** |
 
-Golden rule for Mode A: maximize live text; use images only where there is real artwork.
+Golden rule: maximize live text; use images only where there is real artwork.
 
-In Mode B this table is overridden: every row becomes "image slice" except dynamic/personalized content and any block containing placeholders, which stay live text.
+For image-heavy clients this table is overridden by the client profile: rows become image slices, except dynamic/personalized content and any block containing placeholders, which stay live text.
 
 ## Workflow — follow these steps IN ORDER, never skip step 3
 
 **Step 1 — Greet** (see above) and resolve the input frame.
 
-**Step 2 — Rendering mode.** Settle Mode A (live text) vs Mode B (image) per the "Rendering modes" section. If it can't be inferred from the request or the client name, ask the one-line question and wait for the answer before anything else.
+**Step 2 — Client profile.** Identify the client and apply its row from the "Client profiles" table (600px always). If the client can't be named or inferred, ask the one-line question and wait for the answer before anything else. For SAAM, switch to the template-adaptation branch.
 
-**Step 3 — Slice plan.** Analyze the layout and produce the slice list according to the chosen mode: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
+**Step 3 — Slice plan.** Analyze the layout and produce the slice list according to the client profile: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
 
 **Step 4 — BUILD THE `IRIS EXPORT` PAGE. Mandatory. Do NOT write any HTML before this step is done.**
 

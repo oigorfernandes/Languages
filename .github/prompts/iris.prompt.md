@@ -30,18 +30,42 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 - Tag `<custom name="opencounter" type="tracking"/>` logo após `<body>` (Salesforce Marketing Cloud).
 - Placeholders de personalização entre colchetes: `[NOME]`, `[R$ x.xxx]` etc. — nunca inventar valores.
 
-## Modo de renderização — decidir ANTES de fatiar
+## Perfis de cliente — decidir ANTES de fatiar
 
-Clientes diferentes exigem builds diferentes:
+**Regra fixa para todos: 600px de largura.** (O LATAM já pediu 690px e voltou atrás — nunca montar em 690px, a menos que o usuário peça explicitamente nesta execução.)
 
-- **Modo A — TEXTO VIVO** (ex.: Carrefour, Atacadão, Sam's Club): máximo de texto no código. Usa a tabela de fatiamento abaixo.
-- **Modo B — IMAGEM** (ex.: LATAM): o cliente exige a fonte proprietária, então tudo vira imagem fatiada — EXCETO conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis), que não pode ser imagem e fica em texto vivo com Arial. Nesse modo: fatiar em cada fronteira de seção E em cada área clicável distinta (cada link precisa da própria fatia); alt text rico e completo em toda fatia; avisar uma vez sobre o risco maior de spam e seguir.
+| Cliente | Build | CTAs | Particularidades |
+|---|---|---|---|
+| **Carrefour** (também Atacadão, Sam's Club) | Texto + imagens, priorizando HTML sobre imagem; layouts simples | Em código | Faixa do logo fatiada separada do header |
+| **LATAM** | Texto + imagens; banners e blocos complexos em imagem | **Em imagem** | Rodapé e pré-header via AMPscript `ContentBlockByID` |
+| **SAAM** | Adaptar template pronto ("Original Files") — ver ramo SAAM abaixo | Manter os do template | Preservar a estrutura original; trocar imagens pelas traduzidas; código enxuto |
+| **Renner** | Header grande em imagem + resto em HTML | Em código | Layouts simples |
+| **Porto Bank** | Texto + imagens | Em código | Estrutura de código extra limpa e organizada |
+| **RecargaPay** | Texto + imagens, código sempre que possível; alguns blocos em imagem | Em código quando possível | Pouco histórico — na dúvida, perguntar em vez de assumir |
+| **Sicredi** | Texto + imagens, código sempre que possível; alguns blocos em imagem | Em código quando possível | — |
+| **BV** | HTML mais complexo, com particularidades técnicas | Em código | **Mobile first**, tratamento explícito de dark mode, pré-header via AMPscript |
 
-Se o usuário nomeou o modo ou o cliente, aplique (marcas do Grupo Carrefour → Modo A; LATAM → Modo B). Senão, faça UMA pergunta curta antes de executar: "Build em texto vivo (estilo Carrefour) ou em imagem (estilo LATAM, fonte proprietária)?".
+**SAAM ≠ Sam's Club.** Sam's Club é marca do Grupo Carrefour (primeira linha); SAAM é cliente próprio, com fluxo de adaptação de template.
 
-## Decisão de fatiamento — Modo A (o coração do trabalho)
+**Cliente desconhecido:** se não for nomeado nem inferível pelo nome do arquivo ou pela marca no layout, faça UMA pergunta curta — qual cliente é, ou (se novo) build em texto vivo ou em imagem? Nunca chutar entre dois perfis.
 
-No Modo B esta tabela é sobrescrita: toda linha vira "fatia de imagem", exceto conteúdo dinâmico/personalizado e blocos com placeholders, que ficam em texto vivo.
+**Builds majoritariamente em imagem** (LATAM ou similar): conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis) nunca vira imagem — fica em texto vivo com Arial. Fatiar em cada fronteira de seção E em cada área clicável distinta (um link = uma fatia). Alt text rico em toda fatia: com imagens bloqueadas, os alts *são* o e-mail. Avisar uma vez sobre o risco maior de spam e seguir.
+
+### Blocos AMPscript (LATAM, BV)
+
+Inserir como `%%=ContentBlockByID("XXXXXX")=%%` na posição exata do rodapé/pré-header, deixando o ID como `XXXXXX` para o usuário preencher, salvo se ele informar. Nunca reconstruir em HTML um bloco que o cliente entrega via ContentBlockByID.
+
+### Mobile first + dark mode (BV)
+
+Tabelas fluidas (`width:100%` com `max-width:600px`), empilhamento como comportamento padrão via `.stack`, áreas de toque ≥44px, e todo bloco colorido com classes `.dm-bg`/`.dm-txt` mais os fallbacks `[data-ogsc]`. Conferir se logos e ícones continuam legíveis sobre fundo escuro.
+
+### Ramo SAAM — adaptação de template, não fatiamento
+
+Para SAAM, não montar do zero: partir do template "Original Files" fornecido, manter estrutura e nomes de classe, trocar apenas textos e caminhos de imagem (assets traduzidos) e remover sobras. Fatiamento só para imagens genuinamente novas.
+
+## Decisão de fatiamento (tabela padrão — builds com texto em código)
+
+Para clientes majoritariamente em imagem, o perfil sobrescreve esta tabela: as linhas viram fatias de imagem, exceto conteúdo dinâmico e blocos com placeholders.
 
 Analise a imagem e classifique cada seção vertical:
 
