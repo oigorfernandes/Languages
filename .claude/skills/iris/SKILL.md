@@ -27,7 +27,7 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 - Estrutura: pasta `<NomeDaCampanha>/` com `index.html` + `images/`.
 - Tabela externa de **600px** (`role="presentation"`, `cellpadding/cellspacing=0`), centrada, `max-width:100%`.
 - `<head>` com os mesmos resets, media query mobile (480px, classe `.stack`) e dark mode (`prefers-color-scheme` + `[data-ogsc]`).
-- Fontes: Arial/Helvetica apenas. CSS inline em cada elemento (e-mail não confia em `<style>` para o corpo).
+- Fontes: ver a seção "Fontes" abaixo (fonte da marca declarada primeiro, stack segura como fallback). CSS inline em cada elemento (e-mail não confia em `<style>` para o corpo).
 - Tag `<custom name="opencounter" type="tracking"/>` logo após `<body>` (Salesforce Marketing Cloud).
 - Placeholders de personalização entre colchetes: `[NOME]`, `[R$ x.xxx]` etc. — nunca inventar valores.
 
@@ -51,7 +51,7 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 
 **Como decidir:** se o cliente for nomeado no pedido, ou inferível pelo nome do arquivo ou pela marca no layout, aplique aquela linha direto. Senão, apresente esta lista e peça que o usuário escolha um número (ou descreva o build). Nunca chutar entre duas linhas.
 
-**Builds majoritariamente em imagem** (LATAM ou similar): conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis) nunca vira imagem — fica em texto vivo com Arial. Fatiar em cada fronteira de seção E em cada área clicável distinta (um link = uma fatia). Alt text rico em toda fatia: com imagens bloqueadas, os alts *são* o e-mail. Avisar uma vez sobre o risco maior de spam e seguir.
+**Builds majoritariamente em imagem** (LATAM ou similar): conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis) nunca vira imagem — fica em texto vivo, com a stack de fontes definida na seção "Fontes". Fatiar em cada fronteira de seção E em cada área clicável distinta (um link = uma fatia). Alt text rico em toda fatia: com imagens bloqueadas, os alts *são* o e-mail. Avisar uma vez sobre o risco maior de spam e seguir.
 
 ### Blocos AMPscript (LATAM, BV)
 
@@ -83,6 +83,35 @@ Analise a imagem e classifique cada seção vertical:
 | Rodapé institucional (contatos, sociais, legal) | **Texto vivo** seguindo o rodapé das peças de referência |
 
 Regra de ouro: maximizar texto vivo (entregabilidade e acessibilidade) e usar imagem só onde há arte real. E-mail 100% imagem cai em spam — se o usuário insistir em imagem única, atenda, mas avise do risco.
+
+## Fontes — ler da origem, perguntar só quando não for de sistema
+
+Quando a entrada é um arquivo do Figma, a fonte vem das camadas (família, peso, tamanho, entrelinha) — **nunca perguntar qual é a fonte**, ler. Quando a entrada é imagem, identificar o estilo visualmente. O que pode precisar de pergunta é o que FAZER com ela:
+
+**Para todo bloco que ficar em texto vivo:**
+
+- **Fonte segura para e-mail** (Arial, Helvetica, Verdana, Tahoma, Trebuchet MS, Georgia, Times New Roman, Courier New) → montar direto, sem perguntar nada.
+- **Fonte NÃO segura** (de marca/proprietária) → **perguntar antes de montar**, numa única mensagem, nomeando a fonte e oferecendo os três caminhos:
+
+  > "O texto vivo usa **Poppins**, que Gmail e Outlook não renderizam. Você quer: **(a)** declarar `'Poppins', Arial, …` — Apple/iOS/Samsung mostram a fonte da marca, Gmail/Outlook caem no fallback; **(b)** montar só em Arial; ou **(c)** transformar esses blocos em fatias de imagem, preservando a fonte em todo lugar?"
+
+  O caminho (a) é o padrão recomendado quando o usuário não tem preferência. Se ele fornecer webfont hospedada, declarar no head com `@import` (ou `<link>`), sempre mantendo a stack segura como fallback.
+
+A verificação acontece uma vez por execução, cobrindo todos os blocos de texto vivo de uma vez — nunca uma pergunta por bloco.
+
+Escolher o fallback pelo estilo da fonte da marca:
+
+| Estilo da fonte no layout | Stack de fallback |
+|---|---|
+| Sans geométrica/grotesca (Poppins, Montserrat, Gotham, Circular, Futura…) | `Arial, 'Helvetica Neue', Helvetica, sans-serif` |
+| Sans humanista (Open Sans, Lato, Source Sans, Segoe UI) | `Arial, 'Helvetica Neue', Helvetica, sans-serif` — Verdana só se o design depender de face mais larga |
+| Condensada / narrow | `'Arial Narrow', Arial, sans-serif` — avisar que o fallback é mais largo |
+| Serifada | `Georgia, 'Times New Roman', Times, serif` |
+| Monoespaçada | `'Courier New', Courier, monospace` |
+
+Pesos viram `font-weight:400 / 600 / 700`; tamanhos e entrelinhas saem da camada (line-height em %). Como o fallback tem métricas diferentes, um parágrafo pode ocupar uma linha a mais onde a fonte da marca não carregar — nunca corrigir reduzindo corpo de texto abaixo de 14px; ajustar padding.
+
+No resumo final, dizer qual fonte da marca foi declarada e para qual ela cai. Conteúdo dinâmico/personalizado nunca pode ser imagem, então sempre depende da stack — sinalizar isso explicitamente.
 
 ## Fatiamento técnico
 

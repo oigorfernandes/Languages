@@ -26,8 +26,39 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 
 - **Texts:** copy exactly from the text layers, including personalization tokens (`[NOME]`, `%%PRINOME%%`, `[R$ x.xxx]`, `XX de XX`) — never invent or fill values.
 - **Colors:** exact hex from fills.
-- **Typography:** note weight/size, but the HTML uses Arial/Helvetica only.
+- **Typography:** read family, weight, size and line-height from the layers — never ask which font it is. Then apply the font rules below.
 - **Measurements:** widths, paddings, corner radii from the frame properties.
+
+### Fonts — read from the layers, keep the brand font, plan the fallback
+
+The layers already carry family, weight, size and line-height — **never ask which font it is**, read it. What may need asking is what to DO with it:
+
+**Check every block that stays live text:**
+
+- **Layer font is email-safe** (Arial, Helvetica, Verdana, Tahoma, Trebuchet MS, Georgia, Times New Roman, Courier New) → build it, say nothing, no question.
+- **Layer font is NOT email-safe** (brand/proprietary) → **ASK before building**, in one message, naming the font and offering the three routes:
+
+  > "The live text uses **Poppins**, which Gmail and Outlook can't render. Do you want: **(a)** declare `'Poppins', Arial, …` — Apple/iOS/Samsung show the brand font, Gmail/Outlook fall back; **(b)** build it in Arial only; or **(c)** turn those blocks into image slices so the font is preserved everywhere?"
+
+  Route (a) is the recommended default when the user has no preference. If they provide a hosted webfont, declare it in the head with `@import` (or `<link>`), always keeping the safe stack as the fallback.
+
+This check happens once per run, covering all live-text blocks at the same time — never one question per block.
+
+Pick the fallback by matching the brand font's style:
+
+| Brand font style | Fallback stack after it |
+|---|---|
+| Geometric/grotesque sans (Poppins, Montserrat, Gotham, Circular, Futura…) | `Arial, 'Helvetica Neue', Helvetica, sans-serif` |
+| Humanist sans (Open Sans, Lato, Source Sans, Segoe UI) | `Arial, 'Helvetica Neue', Helvetica, sans-serif` — Verdana only if the design depends on a wider face |
+| Condensed / narrow | `'Arial Narrow', Arial, sans-serif` — warn that the fallback is wider |
+| Serif | `Georgia, 'Times New Roman', Times, serif` |
+| Monospace | `'Courier New', Courier, monospace` |
+
+Weights map to `font-weight:400 / 600 / 700`; sizes and line-heights come straight from the layer (line-height as %).
+
+Because the fallback has different metrics, a paragraph may take one extra line where the brand font doesn't load. Never fix that by dropping body copy below 14px — adjust padding instead.
+
+In the final summary, state which brand font was declared and what it falls back to. **If a block's typography is non-negotiable**, that block belongs in an image slice (the client profile decides) — but dynamic/personalized content can never be an image, so it always depends on the stack; flag that explicitly.
 
 ## Client profiles — settle this BEFORE slicing
 
@@ -49,9 +80,9 @@ The whole slice plan depends on this, so settle it first.
 
 **SAAM ≠ Sam's Club.** Sam's Club is a Carrefour-group brand (row 1); SAAM is its own client, with the template-adaptation flow.
 
-**How to settle it:** if the client is named in the request, or inferable from the file/frame name or the branding in the layout, apply that row directly. Otherwise present this list and ask the user to pick a number (or describe the build). Never guess between two rows. Together with frame ambiguity, this is the only question allowed.
+**How to settle it:** if the client is named in the request, or inferable from the file/frame name or the branding in the layout, apply that row directly. Otherwise present this list and ask the user to pick a number (or describe the build). Never guess between two rows. Along with frame ambiguity and the non-system-font check, this is one of only three questions allowed in a run.
 
-**Image-heavy builds** (LATAM, or any run where most blocks are images): dynamic/personalized content (`%%PRINOME%%`, variable values, dates to fill) can never be an image — it stays live text in Arial. Slice at every section boundary AND at every distinct clickable area (one link = one slice). Write rich, complete `alt` text on every slice: with images blocked, the alt texts ARE the email. Warn once about the higher spam risk, then proceed.
+**Image-heavy builds** (LATAM, or any run where most blocks are images): dynamic/personalized content (`%%PRINOME%%`, variable values, dates to fill) can never be an image — it stays live text, using the stack defined in the "Fonts" section. Slice at every section boundary AND at every distinct clickable area (one link = one slice). Write rich, complete `alt` text on every slice: with images blocked, the alt texts ARE the email. Warn once about the higher spam risk, then proceed.
 
 ### AMPscript content blocks (LATAM, BV)
 
@@ -100,6 +131,8 @@ For each slice in the plan:
 5. Add a **PNG export setting at 2x** on the frame.
 
 Checkpoint before moving on: count frames = count slices, then announce in chat: "IRIS EXPORT page ready with N frames: …". If the environment truly cannot create pages/frames, SAY SO explicitly and output the slice list with coordinates for manual cropping — never skip silently.
+
+How many slices is a judgement call driven by the client profile and the layout itself: an html-first piece may need a single header slice, an image-first one needs a dozen, and a `template` run may need none at all. If the plan legitimately has zero new images, state that ("no slices needed — this run reuses the template's assets") and go straight to the HTML. Skipping the page is only allowed when the plan is genuinely empty — never as a shortcut.
 
 **Step 5 — Export.** Export the frames yourself if the environment allows; otherwise tell the user to batch-export the `IRIS EXPORT` page — files come out with the right names and scale.
 
