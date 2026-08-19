@@ -34,20 +34,21 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 
 **Regra fixa para todos: 600px de largura.** (O LATAM já pediu 690px e voltou atrás — nunca montar em 690px, a menos que o usuário peça explicitamente nesta execução.)
 
-| Cliente | Build | CTAs | Particularidades |
-|---|---|---|---|
-| **Carrefour** (também Atacadão, Sam's Club) | Texto + imagens, priorizando HTML sobre imagem; layouts simples | Em código | Faixa do logo fatiada separada do header |
-| **LATAM** | Texto + imagens; banners e blocos complexos em imagem | **Em imagem** | Rodapé e pré-header via AMPscript `ContentBlockByID` |
-| **SAAM** | Adaptar template pronto ("Original Files") — ver ramo SAAM abaixo | Manter os do template | Preservar a estrutura original; trocar imagens pelas traduzidas; código enxuto |
-| **Renner** | Header grande em imagem + resto em HTML | Em código | Layouts simples |
-| **Porto Bank** | Texto + imagens | Em código | Estrutura de código extra limpa e organizada |
-| **RecargaPay** | Texto + imagens, código sempre que possível; alguns blocos em imagem | Em código quando possível | Pouco histórico — na dúvida, perguntar em vez de assumir |
-| **Sicredi** | Texto + imagens, código sempre que possível; alguns blocos em imagem | Em código quando possível | — |
-| **BV** | HTML mais complexo, com particularidades técnicas | Em código | **Mobile first**, tratamento explícito de dark mode, pré-header via AMPscript |
+| # | Cliente | O que essa opção significa |
+|---|---|---|
+| 1 | **Carrefour** (também Atacadão, Sam's Club) | Máximo de texto vivo, CTAs em código, layouts simples; faixa do logo fatiada separada do header |
+| 2 | **LATAM** | Banners e blocos complexos em imagem, CTAs em imagem; rodapé e pré-header via AMPscript |
+| 3 | **SAAM** | Adaptar template pronto ("Original Files"): preservar a estrutura original, trocar textos e imagens traduzidas, código enxuto |
+| 4 | **Renner** | Um header grande em imagem, todo o resto em HTML; CTAs em código; layouts simples |
+| 5 | **Porto Bank** | Texto + imagens, CTAs em código, estrutura de código extra limpa e organizada |
+| 6 | **RecargaPay** | Texto + imagens, CTAs em código sempre que possível, alguns blocos em imagem; pouco histórico — na dúvida, perguntar em vez de assumir |
+| 7 | **Sicredi** | Texto + imagens, CTAs em código sempre que possível, alguns blocos em imagem |
+| 8 | **BV** | HTML mais complexo: mobile first, tratamento explícito de dark mode, pré-header via AMPscript |
+| 9 | **Outro / avulso** | Escolher uma base — `html-first` (máximo de texto vivo, CTAs em código), `hybrid` (código onde sai limpo, blocos complexos em imagem), `image-first` (tudo fatiado, uma fatia por link) ou `template` (adaptar arquivo existente) — mais as flags desejadas: `+ampscript-footer`, `+ampscript-preheader`, `+mobile-first`, `+dark-mode`, `+clean-code` |
 
-**SAAM ≠ Sam's Club.** Sam's Club é marca do Grupo Carrefour (primeira linha); SAAM é cliente próprio, com fluxo de adaptação de template.
+**SAAM ≠ Sam's Club.** Sam's Club é marca do Grupo Carrefour (linha 1); SAAM é cliente próprio, com fluxo de adaptação de template.
 
-**Cliente desconhecido:** se não for nomeado nem inferível pelo nome do arquivo ou pela marca no layout, faça UMA pergunta curta — qual cliente é, ou (se novo) build em texto vivo ou em imagem? Nunca chutar entre dois perfis.
+**Como decidir:** se o cliente for nomeado no pedido, ou inferível pelo nome do arquivo ou pela marca no layout, aplique aquela linha direto. Senão, apresente esta lista e peça que o usuário escolha um número (ou descreva o build). Nunca chutar entre duas linhas.
 
 **Builds majoritariamente em imagem** (LATAM ou similar): conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis) nunca vira imagem — fica em texto vivo com Arial. Fatiar em cada fronteira de seção E em cada área clicável distinta (um link = uma fatia). Alt text rico em toda fatia: com imagens bloqueadas, os alts *são* o e-mail. Avisar uma vez sobre o risco maior de spam e seguir.
 

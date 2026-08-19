@@ -33,22 +33,23 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 
 **Standing rule for every client: 600px wide.** (LATAM once asked for 690px and reverted — never build 690px unless the user explicitly asks for it in this run.)
 
-The whole slice plan depends on the client, so identify it first.
+The whole slice plan depends on this, so settle it first.
 
-| Client | Build | CTAs | Particularities |
-|---|---|---|---|
-| **Carrefour** (also Atacadão, Sam's Club) | Text + images, favor HTML over images; simple layouts | In code | Logo strip sliced separately from the header |
-| **LATAM** | Text + images; complex banners and blocks as image | **As image** | Footer and preheader via AMPscript `ContentBlockByID` |
-| **SAAM** | Adapt the ready-made template ("Original Files") — see the SAAM branch below | Keep the template's | Preserve the original structure; swap in translated images; keep the code lean |
-| **Renner** | One large header image + the rest in HTML | In code | Simple layouts |
-| **Porto Bank** | Text + images | In code | Extra clean, well-organized code structure |
-| **RecargaPay** | Text + images, code whenever possible; some blocks as image | In code when possible | Little historical precedent — when in doubt, ask instead of assuming |
-| **Sicredi** | Text + images, code whenever possible; some blocks as image | In code when possible | — |
-| **BV** | More complex HTML, technical particularities | In code | **Mobile first**, explicit dark-mode treatment, preheader via AMPscript |
+| # | Client | What this option means |
+|---|---|---|
+| 1 | **Carrefour** (also Atacadão, Sam's Club) | Maximize live text, CTAs built in code, simple layouts; logo strip sliced separately from the header |
+| 2 | **LATAM** | Complex banners and blocks as image, CTAs as image; footer and preheader via AMPscript |
+| 3 | **SAAM** | Adapt a ready-made template ("Original Files"): preserve the original structure, swap texts and translated images, keep the code lean |
+| 4 | **Renner** | One large header image, everything else in HTML; CTAs in code; simple layouts |
+| 5 | **Porto Bank** | Text + images, CTAs in code, extra clean and well-organized code structure |
+| 6 | **RecargaPay** | Text + images, CTAs in code whenever possible, some blocks as image; little historical precedent — ask instead of assuming when in doubt |
+| 7 | **Sicredi** | Text + images, CTAs in code whenever possible, some blocks as image |
+| 8 | **BV** | More complex HTML: mobile first, explicit dark-mode treatment, preheader via AMPscript |
+| 9 | **Other / one-off** | Pick a base — `html-first` (max live text, CTAs in code), `hybrid` (code where clean, complex blocks as image), `image-first` (everything sliced, one slice per link) or `template` (adapt an existing file) — plus any flags: `+ampscript-footer`, `+ampscript-preheader`, `+mobile-first`, `+dark-mode`, `+clean-code` |
 
-**SAAM ≠ Sam's Club.** Sam's Club is a Carrefour-group brand (first row); SAAM is its own client, with the template-adaptation flow.
+**SAAM ≠ Sam's Club.** Sam's Club is a Carrefour-group brand (row 1); SAAM is its own client, with the template-adaptation flow.
 
-**Unknown client:** if it isn't named and can't be inferred from the file/frame name or the branding in the layout, ask ONE short question — which client is this, or (if new) live-text build or image build? Never guess between two profiles. Together with frame ambiguity, these are the only questions allowed.
+**How to settle it:** if the client is named in the request, or inferable from the file/frame name or the branding in the layout, apply that row directly. Otherwise present this list and ask the user to pick a number (or describe the build). Never guess between two rows. Together with frame ambiguity, this is the only question allowed.
 
 **Image-heavy builds** (LATAM, or any run where most blocks are images): dynamic/personalized content (`%%PRINOME%%`, variable values, dates to fill) can never be an image — it stays live text in Arial. Slice at every section boundary AND at every distinct clickable area (one link = one slice). Write rich, complete `alt` text on every slice: with images blocked, the alt texts ARE the email. Warn once about the higher spam risk, then proceed.
 
