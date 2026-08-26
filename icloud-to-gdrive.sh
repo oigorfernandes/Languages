@@ -48,7 +48,7 @@ CHECKERS="${CHECKERS:-32}"
 MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
 MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((3 * 1024 * 1024 * 1024))}"  # margem de disco
 DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # teto de espera por lote
-STALL_SECONDS="${STALL_SECONDS:-120}"                            # desiste apos este tempo sem progresso
+STALL_SECONDS="${STALL_SECONDS:-900}"                            # desiste apos este tempo sem progresso
 PREFETCH="${PREFETCH:-}"                                         # quantos pedir adiantado (vazio = 1 lote)
 
 JOB_SLUG=$(basename "$ICLOUD_DIR" | sed 's/[^A-Za-z0-9_-]/_/g')
@@ -205,7 +205,7 @@ flush_lote() {
     # Espera ate' todos ficarem prontos, mas desiste se os bytes materializados
     # pararem de crescer por STALL_SECONDS. Um unico arquivo travado nao pode
     # segurar o lote inteiro parado ate' o timeout com a banda de upload ociosa.
-    local esperou=0 faltando=0 mat=0 mat_ant=-1 parado=0
+    local esperou=0 faltando=0 mat=0 mat_ant=-1 parado=0 faltando_ant=999999
     while (( esperou < DOWNLOAD_TIMEOUT )); do
         faltando=0; mat=0
         while IFS= read -r rel; do
@@ -218,8 +218,11 @@ flush_lote() {
         done < "$BATCH_LIST"
         (( faltando == 0 )) && break
 
-        if (( mat > mat_ant )); then
-            parado=0; mat_ant=$mat
+        # Progresso conta bytes OU arquivos concluidos: o iCloud baixa arquivos
+        # grandes para um temporario e so' troca no fim, entao os bytes ficam
+        # parados por minutos mesmo com o download correndo normalmente.
+        if (( mat > mat_ant || faltando < faltando_ant )); then
+            parado=0; mat_ant=$mat; faltando_ant=$faltando
         else
             parado=$((parado + 3))
             (( parado >= STALL_SECONDS )) && break
