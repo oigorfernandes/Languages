@@ -58,6 +58,7 @@ FAIL_FILE="$STATE_DIR/falhas.txt"
 LOG_FILE="$STATE_DIR/migracao.log"
 BATCH_LIST="$STATE_DIR/.lote.txt"
 READY_LIST="$STATE_DIR/.prontos.txt"
+PREFETCH_LIST="$STATE_DIR/.adiantados.txt"
 
 EVICT_AFTER_UPLOAD="${EVICT_AFTER_UPLOAD:-true}"
 
@@ -103,16 +104,19 @@ fi
 # Sobrou lote de uma execucao anterior? Ela morreu com arquivos materializados
 # em disco. O trap de saida cobre um Ctrl+C, mas nao um kill -9, um travamento
 # ou falta de energia — entao a limpeza de verdade acontece aqui, na largada.
-if [[ -s "$BATCH_LIST" ]]; then
-    sobraram=$(wc -l < "$BATCH_LIST" | tr -d ' ')
-    log "${YELLOW}Lote interrompido da execucao anterior: ${sobraram} arquivo(s) ocupando disco.${NC}"
+SOBRAS="$STATE_DIR/.sobras.txt"
+cat "$BATCH_LIST" "$PREFETCH_LIST" 2>/dev/null | LC_ALL=C sort -u > "$SOBRAS"
+if [[ -s "$SOBRAS" ]]; then
+    sobraram=$(wc -l < "$SOBRAS" | tr -d ' ')
+    log "${YELLOW}Execucao anterior deixou ate' ${sobraram} arquivo(s) em disco.${NC}"
     printf 'liberando...'
     while IFS= read -r r; do
         brctl evict "$ICLOUD_DIR/$r" >/dev/null 2>&1
-    done < "$BATCH_LIST"
-    : > "$BATCH_LIST"
+    done < "$SOBRAS"
+    : > "$BATCH_LIST"; : > "$PREFETCH_LIST"
     printf ' ok (livre: %s)\n\n' "$(human "$(free_bytes)")"
 fi
+rm -f "$SOBRAS"
 
 DEST_ROOT="${GDRIVE_REMOTE}:${GDRIVE_DEST}"
 
@@ -182,13 +186,15 @@ echo
 # porque o evict so' acontece depois da verificacao. Alguns lotes assim enchem o
 # disco. Devolve o lote em andamento a' nuvem ao sair, por qualquer motivo.
 limpar_na_saida() {
-    if [[ -s "${BATCH_LIST:-}" ]]; then
-        printf '\n%sliberando o lote interrompido...%s\n' "${YELLOW:-}" "${NC:-}"
+    local f
+    for f in "${BATCH_LIST:-}" "${PREFETCH_LIST:-}"; do
+        [[ -s "$f" ]] || continue
+        printf '\n%sliberando o que ficou em disco...%s\n' "${YELLOW:-}" "${NC:-}"
         while IFS= read -r r; do
             brctl evict "$ICLOUD_DIR/$r" >/dev/null 2>&1
-        done < "$BATCH_LIST"
-        : > "$BATCH_LIST"
-    fi
+        done < "$f"
+        : > "$f"
+    done
 }
 trap limpar_na_saida INT TERM EXIT
 POS=0                     # linha atual de $PENDING, para saber o que pedir adiantado
@@ -286,10 +292,13 @@ flush_lote() {
 
     # Pipeline: pede ja' o download do proximo lote, para o iCloud trabalhar
     # enquanto este sobe. Sem isso, uma fase sempre espera a outra terminar.
-    sed -n "$((POS + 1)),$((POS + PREFETCH))p" "$PENDING" 2>/dev/null \
-        | while IFS= read -r rel; do
-              brctl download "$ICLOUD_DIR/$rel" >/dev/null 2>&1
-          done &
+    # Guarda o que foi pedido adiantado: estes arquivos ficam materializados em
+    # disco sem constar no lote, entao sem esta lista ninguem os libera se a
+    # execucao morrer antes de chegar neles.
+    sed -n "$((POS + 1)),$((POS + PREFETCH))p" "$PENDING" 2>/dev/null > "$PREFETCH_LIST"
+    while IFS= read -r rel; do
+        brctl download "$ICLOUD_DIR/$rel" >/dev/null 2>&1
+    done < "$PREFETCH_LIST" &
 
     # ---- 2. sobe o lote inteiro numa chamada ----
     # --files-from limita a copia aos arquivos do lote; --no-traverse evita
