@@ -30,9 +30,9 @@ set -uo pipefail
 #   ICLOUD_SUBDIR="ARTE" GDRIVE_DEST="Meus Arquivos/ARTE" ./icloud-to-gdrive.sh
 
 ICLOUD_ROOT="${ICLOUD_ROOT:-$HOME/Library/Mobile Documents/com~apple~CloudDocs}"
-ICLOUD_SUBDIR="${ICLOUD_SUBDIR:-}"          # vazio = migrar o iCloud Drive inteiro
+ICLOUD_SUBDIR="${ICLOUD_SUBDIR:-Arte}"      # vazio = migrar o iCloud Drive inteiro
 GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"    # nome do remote do `rclone config`
-GDRIVE_DEST="${GDRIVE_DEST:-iCloudBackup}"  # pasta de destino dentro do Drive
+GDRIVE_DEST="${GDRIVE_DEST:-Meus Arquivos/Arte}"  # pasta de destino dentro do Drive
 SEAGATE_DIR="${SEAGATE_DIR:-/Volumes/SEAGATE/iCloudGrandes}"
 
 if [[ -n "$ICLOUD_SUBDIR" ]]; then
