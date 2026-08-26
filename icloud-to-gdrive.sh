@@ -25,16 +25,28 @@ set -uo pipefail
 # CONFIGURACAO — ajuste estes valores
 # ----------------------------------------------------------------------------
 
-ICLOUD_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
-GDRIVE_REMOTE="gdrive"           # nome do remote configurado no `rclone config`
-GDRIVE_DEST="iCloudBackup"       # pasta de destino dentro do Google Drive
-SEAGATE_DIR="/Volumes/SEAGATE/iCloudGrandes"
+# Todos aceitam ser sobrescritos por variavel de ambiente, entao da' pra rodar
+# pastas diferentes sem editar o script. Ex:
+#   ICLOUD_SUBDIR="ARTE" GDRIVE_DEST="Meus Arquivos/ARTE" ./icloud-to-gdrive.sh
 
-MAX_SIZE_BYTES=$((8 * 1024 * 1024 * 1024))   # ate 8GB vai direto pro Drive; acima, Seagate
-MIN_FREE_BYTES=$((4 * 1024 * 1024 * 1024))   # aborta se o disco cair abaixo de 4 GB livres
-DOWNLOAD_TIMEOUT=1800                        # 30 min de espera maxima por item
+ICLOUD_ROOT="${ICLOUD_ROOT:-$HOME/Library/Mobile Documents/com~apple~CloudDocs}"
+ICLOUD_SUBDIR="${ICLOUD_SUBDIR:-}"          # vazio = migrar o iCloud Drive inteiro
+GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"    # nome do remote do `rclone config`
+GDRIVE_DEST="${GDRIVE_DEST:-iCloudBackup}"  # pasta de destino dentro do Drive
+SEAGATE_DIR="${SEAGATE_DIR:-/Volumes/SEAGATE/iCloudGrandes}"
 
-STATE_DIR="$HOME/.icloud-migration"
+if [[ -n "$ICLOUD_SUBDIR" ]]; then
+    ICLOUD_DIR="$ICLOUD_ROOT/$ICLOUD_SUBDIR"
+else
+    ICLOUD_DIR="$ICLOUD_ROOT"
+fi
+
+MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
+MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((4 * 1024 * 1024 * 1024))}"  # margem de disco livre
+DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-1800}"                     # espera maxima por item
+
+JOB_SLUG=$(basename "$ICLOUD_DIR" | sed 's/[^A-Za-z0-9_-]/_/g')
+STATE_DIR="${STATE_DIR:-$HOME/.icloud-migration/$JOB_SLUG}"
 DONE_FILE="$STATE_DIR/concluidos.txt"
 FAIL_FILE="$STATE_DIR/falhas.txt"
 LOG_FILE="$STATE_DIR/migracao.log"
@@ -124,7 +136,10 @@ fi
 # Um "item" e' um arquivo comum OU um pacote inteiro. O -prune faz o find parar
 # na borda do pacote: ele reporta o pacote e nao desce dentro dele.
 
-log "${BOLD}Varrendo $ICLOUD_DIR ...${NC}"
+log "${BOLD}Origem :${NC} $ICLOUD_DIR"
+log "${BOLD}Destino:${NC} ${GDRIVE_REMOTE}:${GDRIVE_DEST}"
+echo
+log "${BOLD}Varrendo...${NC}"
 
 bundle_pred=()
 for ext in "${BUNDLE_EXTS[@]}"; do
