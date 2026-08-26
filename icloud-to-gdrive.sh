@@ -162,6 +162,8 @@ flush_lote() {
     # ---- 1. materializa o lote ----
     # Dispara todos os downloads e depois espera: o iCloud busca varios em
     # paralelo, entao pedir tudo de uma vez e' bem mais rapido que um a um.
+    local t0 t1 t_baixa t_sobe t_confere
+    t0=$(date +%s)
     printf '  baixando...'
     while IFS= read -r rel; do
         brctl download "$ICLOUD_DIR/$rel" 2>/dev/null
@@ -182,10 +184,11 @@ flush_lote() {
         (( esperou % 30 == 0 )) && printf '.'
     done
 
+    t1=$(date +%s); t_baixa=$((t1 - t0)); t0=$t1
     if (( faltando > 0 )); then
-        printf ' %s%d nao baixaram — subindo o resto%s\n' "$YELLOW" "$faltando" "$NC"
+        printf ' %s%d nao baixaram%s (%ds)\n' "$YELLOW" "$faltando" "$NC" "$t_baixa"
     else
-        printf ' ok\n'
+        printf ' ok (%ds)\n' "$t_baixa"
     fi
 
     # ---- 2. sobe o lote inteiro numa chamada ----
@@ -197,7 +200,13 @@ flush_lote() {
         --transfers "$TRANSFERS" --checkers "$CHECKERS" \
         --drive-chunk-size 32M --retries 3 --low-level-retries 10 \
         --no-traverse --stats 0 >>"$LOG_FILE" 2>&1
-    printf ' ok\n'
+    t1=$(date +%s); t_sobe=$((t1 - t0)); t0=$t1
+    if (( t_sobe > 0 )); then
+        printf ' ok (%ds, %.0f Mbps)\n' "$t_sobe" \
+            "$(bc -l <<< "$lote_bytes * 8 / 1000000 / $t_sobe")"
+    else
+        printf ' ok (%ds)\n' "$t_sobe"
+    fi
 
     # ---- 3. confere o lote ----
     # --combined marca cada arquivo: '=' igual, o resto e' problema. Assim um
@@ -228,11 +237,14 @@ flush_lote() {
         done < "$BATCH_LIST"
     fi
 
+    t1=$(date +%s); t_confere=$((t1 - t0))
     if (( bad_n == 0 )); then
-        printf ' %sok (%d)%s\n' "$GREEN" "$ok_n" "$NC"
+        printf ' %sok (%d)%s (%ds)\n' "$GREEN" "$ok_n" "$NC" "$t_confere"
     else
-        printf ' %s%d ok, %d com problema%s\n' "$YELLOW" "$ok_n" "$bad_n" "$NC"
+        printf ' %s%d ok, %d com problema%s (%ds)\n' "$YELLOW" "$ok_n" "$bad_n" "$NC" "$t_confere"
     fi
+    printf '  %stempo: baixar %ds | subir %ds | conferir %ds%s\n' \
+        "$BOLD" "$t_baixa" "$t_sobe" "$t_confere" "$NC" 
 
     enviados=$((enviados + ok_n))
     falhados=$((falhados + bad_n))
