@@ -49,7 +49,8 @@ MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, 
 MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((3 * 1024 * 1024 * 1024))}"  # margem de disco
 DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # teto de espera por lote
 STALL_SECONDS="${STALL_SECONDS:-900}"                            # desiste apos este tempo sem progresso
-PREFETCH="${PREFETCH:-}"                                         # quantos pedir adiantado (vazio = 1 lote)
+DOWNLOAD_WINDOW="${DOWNLOAD_WINDOW:-24}"                         # downloads simultaneos pedidos ao iCloud
+PREFETCH="${PREFETCH:-}"                                         # quantos pedir adiantado (vazio = 1 janela)
 
 JOB_SLUG=$(basename "$ICLOUD_DIR" | sed 's/[^A-Za-z0-9_-]/_/g')
 STATE_DIR="${STATE_DIR:-$HOME/.icloud-migration/$JOB_SLUG}"
@@ -180,7 +181,7 @@ echo
 
 # --- estado do loop ---------------------------------------------------------
 
-: "${PREFETCH:=$BATCH_MAX_FILES}"
+: "${PREFETCH:=$DOWNLOAD_WINDOW}"
 
 # Um Ctrl+C no meio de um lote deixava em disco tudo que ja' tinha sido baixado,
 # porque o evict so' acontece depois da verificacao. Alguns lotes assim enchem o
@@ -229,9 +230,17 @@ flush_lote() {
     local t0 t1 t_baixa t_sobe t_confere
     t0=$(date +%s)
     printf '  baixando...'
-    while IFS= read -r rel; do
-        brctl download "$ICLOUD_DIR/$rel" 2>/dev/null
-    done < "$BATCH_LIST"
+
+    # O iCloud reparte a banda dele entre tudo que foi pedido: com centenas de
+    # downloads abertos cada um vira um fio d'agua e quase nenhum termina.
+    # Pede em janela deslizante — poucos por vez, repondo conforme completam.
+    local -a itens=()
+    while IFS= read -r rel; do itens+=("$rel"); done < "$BATCH_LIST"
+    local n_itens=${#itens[@]} pedidos=0
+    while (( pedidos < n_itens && pedidos < DOWNLOAD_WINDOW )); do
+        brctl download "$ICLOUD_DIR/${itens[$pedidos]}" >/dev/null 2>&1
+        pedidos=$((pedidos + 1))
+    done
 
     # Espera ate' todos ficarem prontos, mas desiste se os bytes materializados
     # pararem de crescer por STALL_SECONDS. Um unico arquivo travado nao pode
@@ -248,6 +257,13 @@ flush_lote() {
             (( al < lg )) && faltando=$((faltando + 1))
         done < "$BATCH_LIST"
         (( faltando == 0 )) && break
+
+        # repoe a janela: para cada arquivo que ficou pronto, pede o proximo
+        local em_voo=$(( pedidos - (n_itens - faltando) ))
+        while (( em_voo < DOWNLOAD_WINDOW && pedidos < n_itens )); do
+            brctl download "$ICLOUD_DIR/${itens[$pedidos]}" >/dev/null 2>&1
+            pedidos=$((pedidos + 1)); em_voo=$((em_voo + 1))
+        done
 
         # Progresso conta bytes OU arquivos concluidos: o iCloud baixa arquivos
         # grandes para um temporario e so' troca no fim, entao os bytes ficam
