@@ -260,12 +260,21 @@ while IFS= read -r -d '' item; do
     fi
 
     # ---- 3. confere ----
+    # Compara o total de bytes no destino com o tamanho logico local.
+    # `rclone size` aceita tanto arquivo quanto pasta, entao a mesma checagem
+    # serve para itens comuns e para pacotes — ao contrario do `rclone check`,
+    # que espera diretorios e da' falso negativo quando recebe um arquivo.
     printf '  verificando...'
-    if rclone check "$item" "$alvo" --size-only >>"$LOG_FILE" 2>&1; then
+    remoto=$(rclone size --json "$alvo" 2>>"$LOG_FILE" \
+             | sed -n 's/.*"bytes":[[:space:]]*\([0-9-]*\).*/\1/p')
+    : "${remoto:=-1}"
+
+    if [[ "$remoto" == "$size" ]]; then
         printf ' ok\n'
     else
-        printf ' %sNAO CONFERE%s\n' "$RED" "$NC"
-        printf '%s\tverificacao falhou\n' "$rel" >> "$FAIL_FILE"
+        printf ' %sNAO CONFERE%s (local %s, remoto %s)\n' "$RED" "$NC" \
+            "$(human "$size")" "$( (( remoto >= 0 )) && human "$remoto" || echo '?' )"
+        printf '%s\tverificacao falhou: local=%s remoto=%s\n' "$rel" "$size" "$remoto" >> "$FAIL_FILE"
         fail=$((fail + 1)); continue
     fi
 
