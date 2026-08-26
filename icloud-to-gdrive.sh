@@ -1,38 +1,38 @@
 #!/bin/bash
 #
-# icloud-to-gdrive.sh — migra iCloud Drive -> Google Drive, um item por vez.
+# icloud-to-gdrive.sh — migra iCloud Drive -> Google Drive, em LOTES.
 #
-# Como funciona:
-#   Para CADA item, na ordem: baixa (materializa) -> sobe -> confere -> despeja.
-#   O pico de uso de disco e' o tamanho do MAIOR item, nao o da biblioteca toda.
+# Estrategia:
+#   Junta arquivos ate' fechar um lote (por bytes ou por quantidade), materializa
+#   o lote inteiro de uma vez, sobe numa unica chamada do rclone com varios
+#   uploads em paralelo, confere, e so' entao despeja as copias locais.
 #
-# A arvore de pastas e' preservada identica no destino, incluindo pastas vazias.
-# Pacotes do macOS (.pages, .key, .app, .rtfd...) sao tratados como UMA unidade,
-# nunca abertos e espalhados.
+#   Uma chamada de rclone por LOTE em vez de uma por arquivo: e' isso que faz a
+#   diferenca entre dias e horas quando ha' dezenas de milhares de arquivos
+#   pequenos, onde o custo fixo de abrir conexao dominava o tempo total.
 #
-# Itens acima de MAX_SIZE_BYTES vao para o HD externo, para upload manual depois.
+#   O pico de disco continua limitado: um lote nunca e' maior que BATCH_BYTES,
+#   e nunca e' iniciado se nao couber na folga livre.
+#
+# A arvore de pastas e' preservada identica, incluindo pastas vazias. Pacotes do
+# macOS (.pages, .key, .app) sobem como a pasta que sao, com o conteudo no lugar.
 #
 # Uso:
-#   ./icloud-to-gdrive.sh --dry-run     # simula, nao move nada (COMECE POR AQUI)
+#   ./icloud-to-gdrive.sh --dry-run     # so' planeja os lotes, nao transfere
 #   ./icloud-to-gdrive.sh               # pra valer
 #
-# Pode interromper com Ctrl+C a qualquer momento e rodar de novo: ele retoma
-# de onde parou lendo o arquivo de estado.
+# Pode interromper com Ctrl+C e rodar de novo: retoma pelo arquivo de estado.
 
 set -uo pipefail
 
 # ----------------------------------------------------------------------------
-# CONFIGURACAO — ajuste estes valores
+# CONFIGURACAO — todos aceitam sobrescrita por variavel de ambiente
 # ----------------------------------------------------------------------------
 
-# Todos aceitam ser sobrescritos por variavel de ambiente, entao da' pra rodar
-# pastas diferentes sem editar o script. Ex:
-#   ICLOUD_SUBDIR="ARTE" GDRIVE_DEST="Meus Arquivos/ARTE" ./icloud-to-gdrive.sh
-
 ICLOUD_ROOT="${ICLOUD_ROOT:-$HOME/Library/Mobile Documents/com~apple~CloudDocs}"
-ICLOUD_SUBDIR="${ICLOUD_SUBDIR:-Arte}"      # vazio = migrar o iCloud Drive inteiro
-GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"    # nome do remote do `rclone config`
-GDRIVE_DEST="${GDRIVE_DEST:-Meus Arquivos/Arte}"  # pasta de destino dentro do Drive
+ICLOUD_SUBDIR="${ICLOUD_SUBDIR:-Arte}"            # vazio = iCloud Drive inteiro
+GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
+GDRIVE_DEST="${GDRIVE_DEST:-Meus Arquivos/Arte}"
 SEAGATE_DIR="${SEAGATE_DIR:-/Volumes/SEAGATE/iCloudGrandes}"
 
 if [[ -n "$ICLOUD_SUBDIR" ]]; then
@@ -41,9 +41,13 @@ else
     ICLOUD_DIR="$ICLOUD_ROOT"
 fi
 
+BATCH_BYTES="${BATCH_BYTES:-$((2 * 1024 * 1024 * 1024))}"        # ~2GB por lote
+BATCH_MAX_FILES="${BATCH_MAX_FILES:-400}"                        # teto de itens
+TRANSFERS="${TRANSFERS:-8}"                                      # uploads simultaneos
+CHECKERS="${CHECKERS:-16}"
 MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
-MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((4 * 1024 * 1024 * 1024))}"  # margem de disco livre
-DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-1800}"                     # espera maxima por item
+MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((4 * 1024 * 1024 * 1024))}"  # margem de disco
+DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # espera por lote
 
 JOB_SLUG=$(basename "$ICLOUD_DIR" | sed 's/[^A-Za-z0-9_-]/_/g')
 STATE_DIR="${STATE_DIR:-$HOME/.icloud-migration/$JOB_SLUG}"
@@ -51,14 +55,7 @@ DONE_FILE="$STATE_DIR/concluidos.txt"
 FAIL_FILE="$STATE_DIR/falhas.txt"
 LOG_FILE="$STATE_DIR/migracao.log"
 
-# Despejar a copia local depois de subir? (false = util pra testar)
-EVICT_AFTER_UPLOAD=true
-
-# Extensoes que o macOS trata como PACOTE: sao pastas por baixo, mas precisam
-# viajar inteiras. Abrir uma dessas e copiar o conteudo solto QUEBRA o arquivo.
-BUNDLE_EXTS=(app rtfd pages numbers key photoslibrary musiclibrary tvlibrary
-             band logicx fcpbundle scriv sparsebundle framework bundle pkg
-             mpkg qlgenerator prefpane workflow download aplibrary)
+EVICT_AFTER_UPLOAD="${EVICT_AFTER_UPLOAD:-true}"
 
 # ----------------------------------------------------------------------------
 
@@ -72,10 +69,9 @@ RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'
 BLUE=$'\033[0;34m'; BOLD=$'\033[1m'; NC=$'\033[0m'
 
 log() {
-    local msg="$1"
-    printf '%s\n' "$msg"
+    printf '%s\n' "$1"
     printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" \
-        "$(printf '%s' "$msg" | sed $'s/\033\\[[0-9;]*m//g')" >> "$LOG_FILE"
+        "$(printf '%s' "$1" | sed $'s/\033\\[[0-9;]*m//g')" >> "$LOG_FILE"
 }
 
 human() {
@@ -89,242 +85,260 @@ human() {
 
 free_bytes() { df -k / | awk 'NR==2 {print $4 * 1024}'; }
 
-# Tamanho LOGICO de um item: para um placeholder do iCloud, `stat -f%z` ja
-# devolve o tamanho real que o arquivo tera' depois de baixado — entao da' pra
-# decidir o destino ANTES de baixar. Para um pacote, soma os arquivos internos.
-logical_size() {
-    local path="$1"
-    if [[ -d "$path" ]]; then
-        find "$path" -type f -exec stat -f%z {} + 2>/dev/null \
-            | awk '{s+=$1} END {print s+0}'
-    else
-        stat -f%z "$path" 2>/dev/null || echo 0
-    fi
-}
+# --- verificacoes -----------------------------------------------------------
 
-# Quantos bytes do item ja' estao de fato materializados em disco.
-materialized_size() {
-    local path="$1"
-    if [[ -d "$path" ]]; then
-        find "$path" -type f -exec stat -f%b {} + 2>/dev/null \
-            | awk '{s+=$1} END {print (s+0)*512}'
-    else
-        echo $(( $(stat -f%b "$path" 2>/dev/null || echo 0) * 512 ))
-    fi
-}
-
-# --- verificacoes iniciais --------------------------------------------------
-
-command -v rclone >/dev/null || { log "${RED}rclone nao instalado. Rode: brew install rclone${NC}"; exit 1; }
+command -v rclone >/dev/null || { log "${RED}rclone nao instalado.${NC}"; exit 1; }
 command -v brctl  >/dev/null || { log "${RED}brctl nao encontrado (precisa ser macOS).${NC}"; exit 1; }
-[[ -d "$ICLOUD_DIR" ]] || { log "${RED}Pasta do iCloud nao encontrada: $ICLOUD_DIR${NC}"; exit 1; }
+[[ -d "$ICLOUD_DIR" ]] || { log "${RED}Pasta nao encontrada: $ICLOUD_DIR${NC}"; exit 1; }
 
-if ! rclone lsd "${GDRIVE_REMOTE}:" >/dev/null 2>&1; then
+if ! $DRY_RUN && ! rclone lsd "${GDRIVE_REMOTE}:" >/dev/null 2>&1; then
     log "${RED}Remote '${GDRIVE_REMOTE}' nao responde. Rode: rclone config${NC}"
     exit 1
 fi
 
-if [[ ! -d "$SEAGATE_DIR" ]]; then
-    log "${YELLOW}Aviso: $SEAGATE_DIR nao existe.${NC}"
-    log "${YELLOW}Itens acima de $(human $MAX_SIZE_BYTES) serao PULADOS.${NC}"
-    log "${YELLOW}Conecte o HD (ou ajuste SEAGATE_DIR no script) para trata-los.${NC}"
-    echo
-fi
-
-# --- monta a lista de itens -------------------------------------------------
-#
-# Um "item" e' um arquivo comum OU um pacote inteiro. O -prune faz o find parar
-# na borda do pacote: ele reporta o pacote e nao desce dentro dele.
+DEST_ROOT="${GDRIVE_REMOTE}:${GDRIVE_DEST}"
 
 log "${BOLD}Origem :${NC} $ICLOUD_DIR"
-log "${BOLD}Destino:${NC} ${GDRIVE_REMOTE}:${GDRIVE_DEST}"
+log "${BOLD}Destino:${NC} $DEST_ROOT"
+log "${BOLD}Lote   :${NC} ate' $(human "$BATCH_BYTES") ou ${BATCH_MAX_FILES} arquivos, ${TRANSFERS} em paralelo"
 echo
+
+# --- lista o que falta ------------------------------------------------------
+#
+# Subtrai os concluidos da lista completa com `comm`, que compara duas listas
+# ordenadas de uma vez — em vez de um `grep` por arquivo, que com 31 mil itens
+# viraria dezenas de milhoes de comparacoes.
+
 log "${BOLD}Varrendo...${NC}"
 
-bundle_pred=()
-for ext in "${BUNDLE_EXTS[@]}"; do
-    bundle_pred+=(-o -iname "*.${ext}")
-done
-bundle_pred=("${bundle_pred[@]:1}")   # descarta o -o inicial
+ALL_FILE="$STATE_DIR/.todos.txt"
+PENDING="$STATE_DIR/.pendentes.txt"
 
-FILE_LIST="$STATE_DIR/lista.txt"
-find "$ICLOUD_DIR" \
-     \( -type d \( "${bundle_pred[@]}" \) -prune -print0 \) -o \
-     \( -type f ! -name '.DS_Store' ! -name '.localized' \
-        ! -name '*.icloud' ! -path '*/.Trash/*' -print0 \) \
-     > "$FILE_LIST" 2>/dev/null
+find "$ICLOUD_DIR" -type f \
+     ! -name '.DS_Store' ! -name '.localized' ! -name '*.icloud' \
+     ! -path '*/.Trash/*' -print 2>/dev/null \
+    | sed "s|^${ICLOUD_DIR}/||" | LC_ALL=C sort > "$ALL_FILE"
 
-TOTAL=$(tr -dc '\0' < "$FILE_LIST" | wc -c | tr -d ' ')
-log "Encontrados ${BOLD}${TOTAL}${NC} itens (arquivos + pacotes)."
-log "Espaco livre agora: ${BOLD}$(human "$(free_bytes)")${NC}"
-$DRY_RUN && log "${YELLOW}${BOLD}MODO DRY-RUN — nada sera transferido.${NC}"
+TOTAL=$(wc -l < "$ALL_FILE" | tr -d ' ')
+LC_ALL=C sort -u "$DONE_FILE" > "$STATE_DIR/.feitos.txt"
+LC_ALL=C comm -23 "$ALL_FILE" "$STATE_DIR/.feitos.txt" > "$PENDING"
+FALTAM=$(wc -l < "$PENDING" | tr -d ' ')
+
+log "Total: ${BOLD}${TOTAL}${NC} arquivos — ja' feitos: $((TOTAL - FALTAM)) — faltam: ${BOLD}${FALTAM}${NC}"
+log "Disco livre: ${BOLD}$(human "$(free_bytes)")${NC}"
+$DRY_RUN && log "${YELLOW}${BOLD}DRY-RUN — nada sera transferido.${NC}"
 echo
 
-n=0; ok=0; skip=0; big=0; fail=0; bundles=0
-bytes_enviados=0
+(( FALTAM == 0 )) && { log "${GREEN}Nada a fazer.${NC}"; exit 0; }
 
-# --- loop principal ---------------------------------------------------------
+# --- estado do loop ---------------------------------------------------------
 
-while IFS= read -r -d '' item; do
-    n=$((n + 1))
+BATCH_LIST="$STATE_DIR/.lote.txt"
+COMBINED="$STATE_DIR/.combined.txt"
+: > "$BATCH_LIST"
+lote_n=0; lote_bytes=0; lote_arqs=0
+enviados=0; falhados=0; grandes=0; bytes_ok=0
+INICIO=$(date +%s)
 
-    rel="${item#"$ICLOUD_DIR"/}"          # caminho relativo — preserva a arvore
+# Envia o lote acumulado: materializa -> sobe -> confere -> despeja.
+flush_lote() {
+    (( lote_arqs == 0 )) && return 0
+    lote_n=$((lote_n + 1))
 
-    if grep -qxF "$rel" "$DONE_FILE" 2>/dev/null; then
-        skip=$((skip + 1)); continue
+    # Locais de verdade: sem isso os `read -r rel` daqui sobrescreveriam o `rel`
+    # do laco principal, que continua valendo depois que esta funcao retorna.
+    local rel marca linha f lg al
+
+    local restam=$((FALTAM - enviados - falhados))
+    printf '%s[lote %d]%s %d arquivos, %s  (restam %d)\n' \
+        "$BLUE" "$lote_n" "$NC" "$lote_arqs" "$(human "$lote_bytes")" "$restam"
+
+    if $DRY_RUN; then
+        enviados=$((enviados + lote_arqs))
+        : > "$BATCH_LIST"; lote_bytes=0; lote_arqs=0
+        return 0
     fi
 
-    if [[ -d "$item" ]]; then
-        eh_pacote=true;  rotulo=" ${BLUE}[pacote]${NC}"
-    else
-        eh_pacote=false; rotulo=""
-    fi
-
-    printf '%s[%d/%d]%s %s%s\n' "$BLUE" "$n" "$TOTAL" "$NC" "$rel" "$rotulo"
-
-    size=$(logical_size "$item")
-    if (( size == 0 )) && ! $eh_pacote; then
-        log "  ${RED}nao consegui ler o tamanho — pulando${NC}"
-        printf '%s\tstat falhou\n' "$rel" >> "$FAIL_FILE"
-        fail=$((fail + 1)); continue
-    fi
-    printf '  tamanho: %s\n' "$(human "$size")"
-
-    livre=$(free_bytes)
-    if (( livre - size < MIN_FREE_BYTES )); then
-        log "  ${RED}ABORTANDO: livre $(human "$livre"), preciso de $(human "$size") + margem.${NC}"
-        log "  ${RED}Libere espaco e rode de novo — ele retoma daqui.${NC}"
-        break
-    fi
-
-    if (( size > MAX_SIZE_BYTES )); then
-        if [[ ! -d "$SEAGATE_DIR" ]]; then
-            printf '  %sgrande demais e HD ausente — pulando%s\n' "$YELLOW" "$NC"
-            printf '%s\tgrande, HD ausente\n' "$rel" >> "$FAIL_FILE"
-            big=$((big + 1)); continue
-        fi
-        destino="$SEAGATE_DIR/$rel"
-        printf '  %s-> Seagate (acima de %s)%s\n' "$YELLOW" "$(human $MAX_SIZE_BYTES)" "$NC"
-        $DRY_RUN && { big=$((big + 1)); continue; }
-        mkdir -p "$(dirname "$destino")"
-        modo="seagate"
-    else
-        modo="gdrive"
-    fi
-
-    $DRY_RUN && { printf '  %s(dry-run)%s\n' "$YELLOW" "$NC"; ok=$((ok + 1)); continue; }
-
-    # ---- 1. materializa (baixa do iCloud) ----
+    # ---- 1. materializa o lote ----
+    # Dispara todos os downloads e depois espera: o iCloud busca varios em
+    # paralelo, entao pedir tudo de uma vez e' bem mais rapido que um a um.
     printf '  baixando...'
-    brctl download "$item" 2>/dev/null
+    while IFS= read -r rel; do
+        brctl download "$ICLOUD_DIR/$rel" 2>/dev/null
+    done < "$BATCH_LIST"
 
-    esperou=0
+    local esperou=0 faltando=0
     while (( esperou < DOWNLOAD_TIMEOUT )); do
-        (( $(materialized_size "$item") >= size )) && break
-        sleep 2; esperou=$((esperou + 2))
+        faltando=0
+        while IFS= read -r rel; do
+            local f="$ICLOUD_DIR/$rel"
+            local lg al
+            lg=$(stat -f%z "$f" 2>/dev/null || echo 0)
+            al=$(( $(stat -f%b "$f" 2>/dev/null || echo 0) * 512 ))
+            (( al < lg )) && faltando=$((faltando + 1))
+        done < "$BATCH_LIST"
+        (( faltando == 0 )) && break
+        sleep 3; esperou=$((esperou + 3))
         (( esperou % 30 == 0 )) && printf '.'
     done
 
-    if (( $(materialized_size "$item") < size )); then
-        printf ' %sTIMEOUT%s\n' "$RED" "$NC"
-        printf '%s\tdownload timeout\n' "$rel" >> "$FAIL_FILE"
-        fail=$((fail + 1)); continue
+    if (( faltando > 0 )); then
+        printf ' %s%d nao baixaram — subindo o resto%s\n' "$YELLOW" "$faltando" "$NC"
+    else
+        printf ' ok\n'
     fi
+
+    # ---- 2. sobe o lote inteiro numa chamada ----
+    # --files-from limita a copia aos arquivos do lote; --no-traverse evita
+    # listar o destino inteiro a cada lote, que ficaria caro conforme ele cresce.
+    printf '  enviando (%d em paralelo)...' "$TRANSFERS"
+    rclone copy "$ICLOUD_DIR" "$DEST_ROOT" \
+        --files-from "$BATCH_LIST" \
+        --transfers "$TRANSFERS" --checkers "$CHECKERS" \
+        --drive-chunk-size 32M --retries 3 --low-level-retries 10 \
+        --no-traverse --stats 0 >>"$LOG_FILE" 2>&1
     printf ' ok\n'
 
-    # ---- 2. envia ----
-    # copyto para arquivo (destino = caminho final), copy para pacote
-    # (destino = a pasta do pacote, conteudo espelhado dentro dela).
-    if [[ "$modo" == "gdrive" ]]; then
-        alvo="${GDRIVE_REMOTE}:${GDRIVE_DEST}/${rel}"
-        printf '  enviando pro Drive...'
-    else
-        alvo="$destino"
-        printf '  copiando pro Seagate...'
-    fi
-
-    if $eh_pacote; then
-        rclone_cmd=(rclone copy "$item" "$alvo")
-    else
-        rclone_cmd=(rclone copyto "$item" "$alvo")
-    fi
-
-    if "${rclone_cmd[@]}" --drive-chunk-size 32M --retries 3 \
-         --low-level-retries 10 --stats-one-line --stats 0 >>"$LOG_FILE" 2>&1
-    then
-        printf ' ok\n'
-    else
-        printf ' %sFALHOU%s\n' "$RED" "$NC"
-        printf '%s\tenvio falhou\n' "$rel" >> "$FAIL_FILE"
-        fail=$((fail + 1)); continue
-    fi
-
-    # ---- 3. confere ----
-    # Compara o total de bytes no destino com o tamanho logico local.
-    # `rclone size` aceita tanto arquivo quanto pasta, entao a mesma checagem
-    # serve para itens comuns e para pacotes — ao contrario do `rclone check`,
-    # que espera diretorios e da' falso negativo quando recebe um arquivo.
+    # ---- 3. confere o lote ----
+    # --combined marca cada arquivo: '=' igual, o resto e' problema. Assim um
+    # arquivo com defeito nao condena o lote todo — so' ele volta pra fila.
     printf '  verificando...'
-    remoto=$(rclone size --json "$alvo" 2>>"$LOG_FILE" \
-             | sed -n 's/.*"bytes":[[:space:]]*\([0-9-]*\).*/\1/p')
-    : "${remoto:=-1}"
+    rclone check "$ICLOUD_DIR" "$DEST_ROOT" \
+        --files-from "$BATCH_LIST" --size-only \
+        --combined "$COMBINED" >>"$LOG_FILE" 2>&1
 
-    if [[ "$remoto" == "$size" ]]; then
-        printf ' ok\n'
+    local ok_n=0 bad_n=0
+    if [[ -s "$COMBINED" ]]; then
+        while IFS= read -r linha; do
+            local marca="${linha:0:1}" rel="${linha:2}"
+            if [[ "$marca" == "=" ]]; then
+                printf '%s\n' "$rel" >> "$DONE_FILE"
+                ok_n=$((ok_n + 1))
+                $EVICT_AFTER_UPLOAD && brctl evict "$ICLOUD_DIR/$rel" 2>/dev/null
+            else
+                printf '%s\tdivergente (%s)\n' "$rel" "$marca" >> "$FAIL_FILE"
+                bad_n=$((bad_n + 1))
+            fi
+        done < "$COMBINED"
     else
-        printf ' %sNAO CONFERE%s (local %s, remoto %s)\n' "$RED" "$NC" \
-            "$(human "$size")" "$( (( remoto >= 0 )) && human "$remoto" || echo '?' )"
-        printf '%s\tverificacao falhou: local=%s remoto=%s\n' "$rel" "$size" "$remoto" >> "$FAIL_FILE"
-        fail=$((fail + 1)); continue
+        # sem saida do check: nao da' pra afirmar que chegou, entao nao despeja
+        while IFS= read -r rel; do
+            printf '%s\tverificacao sem resultado\n' "$rel" >> "$FAIL_FILE"
+            bad_n=$((bad_n + 1))
+        done < "$BATCH_LIST"
     fi
 
-    # ---- 4. despeja (libera disco; o item continua no iCloud) ----
-    $EVICT_AFTER_UPLOAD && brctl evict "$item" 2>/dev/null || true
+    if (( bad_n == 0 )); then
+        printf ' %sok (%d)%s\n' "$GREEN" "$ok_n" "$NC"
+    else
+        printf ' %s%d ok, %d com problema%s\n' "$YELLOW" "$ok_n" "$bad_n" "$NC"
+    fi
 
-    printf '%s\n' "$rel" >> "$DONE_FILE"
-    ok=$((ok + 1))
-    bytes_enviados=$((bytes_enviados + size))
-    $eh_pacote && bundles=$((bundles + 1))
-    [[ "$modo" == "seagate" ]] && big=$((big + 1))
+    enviados=$((enviados + ok_n))
+    falhados=$((falhados + bad_n))
+    bytes_ok=$((bytes_ok + lote_bytes))
 
-    printf '  %sconcluido%s  (livre: %s)\n\n' "$GREEN" "$NC" "$(human "$(free_bytes)")"
+    # ---- ritmo e previsao ----
+    local agora decorrido taxa restantes eta
+    agora=$(date +%s); decorrido=$((agora - INICIO))
+    if (( enviados > 0 && decorrido > 0 )); then
+        taxa=$(( enviados * 3600 / decorrido ))
+        restantes=$((FALTAM - enviados - falhados))
+        if (( taxa > 0 )); then
+            eta=$(( restantes / taxa ))
+            printf '  %s%d arq/h — faltam ~%dh%s  (livre: %s)\n\n' \
+                "$BOLD" "$taxa" "$eta" "$NC" "$(human "$(free_bytes)")"
+        fi
+    fi
 
-done < "$FILE_LIST"
+    : > "$BATCH_LIST"; lote_bytes=0; lote_arqs=0
+}
+
+# --- monta e despacha os lotes ----------------------------------------------
+
+while IFS= read -r rel; do
+    arquivo="$ICLOUD_DIR/$rel"
+    tam=$(stat -f%z "$arquivo" 2>/dev/null || echo 0)
+
+    # arquivo gigante: vai sozinho pro HD externo
+    if (( tam > MAX_SIZE_BYTES )); then
+        flush_lote
+        if [[ -d "$SEAGATE_DIR" ]]; then
+            printf '%s[grande]%s %s (%s) -> Seagate\n' "$YELLOW" "$NC" "$rel" "$(human "$tam")"
+            if ! $DRY_RUN; then
+                mkdir -p "$(dirname "$SEAGATE_DIR/$rel")"
+                brctl download "$arquivo" 2>/dev/null
+                if rclone copyto "$arquivo" "$SEAGATE_DIR/$rel" --retries 3 \
+                     --stats 0 >>"$LOG_FILE" 2>&1; then
+                    printf '%s\n' "$rel" >> "$DONE_FILE"
+                    $EVICT_AFTER_UPLOAD && brctl evict "$arquivo" 2>/dev/null
+                else
+                    printf '%s\tcopia pro HD falhou\n' "$rel" >> "$FAIL_FILE"
+                fi
+            fi
+        else
+            printf '%s[grande]%s %s (%s) — HD ausente, pulando\n' \
+                "$YELLOW" "$NC" "$rel" "$(human "$tam")"
+            printf '%s\tgrande, HD ausente\n' "$rel" >> "$FAIL_FILE"
+        fi
+        grandes=$((grandes + 1))
+        continue
+    fi
+
+    # o lote nao pode passar do limite de bytes nem estourar o disco
+    livre=$(free_bytes)
+    teto=$(( livre - MIN_FREE_BYTES ))
+    (( teto > BATCH_BYTES )) && teto=$BATCH_BYTES
+
+    if (( lote_arqs > 0 )) && \
+       { (( lote_bytes + tam > teto )) || (( lote_arqs >= BATCH_MAX_FILES )); }; then
+        flush_lote
+        livre=$(free_bytes)
+    fi
+
+    if (( tam > livre - MIN_FREE_BYTES )); then
+        log "${RED}ABORTANDO: sem espaco para $rel ($(human "$tam")).${NC}"
+        log "${RED}Libere disco e rode de novo — ele retoma daqui.${NC}"
+        break
+    fi
+
+    printf '%s\n' "$rel" >> "$BATCH_LIST"
+    lote_bytes=$((lote_bytes + tam))
+    lote_arqs=$((lote_arqs + 1))
+done < "$PENDING"
+
+flush_lote
 
 # --- pastas vazias ----------------------------------------------------------
-#
-# O find acima so' lista arquivos e pacotes, entao uma pasta sem nada dentro
-# nunca apareceria no destino. Recria essas pastas para a arvore ficar identica.
 
 if ! $DRY_RUN; then
     printf '%sRecriando pastas vazias...%s\n' "$BOLD" "$NC"
     vazias=0
-    while IFS= read -r -d '' dir; do
+    while IFS= read -r dir; do
         reldir="${dir#"$ICLOUD_DIR"/}"
-        [[ "$reldir" == "$dir" ]] && continue          # e' a raiz, ignora
-        rclone mkdir "${GDRIVE_REMOTE}:${GDRIVE_DEST}/${reldir}" >>"$LOG_FILE" 2>&1 \
-            && vazias=$((vazias + 1))
-    done < <(find "$ICLOUD_DIR" -type d -empty -not -path '*/.Trash/*' -print0 2>/dev/null)
-    printf '  %d pasta(s) vazia(s) recriada(s)\n' "$vazias"
+        [[ "$reldir" == "$dir" ]] && continue
+        rclone mkdir "$DEST_ROOT/$reldir" >>"$LOG_FILE" 2>&1 && vazias=$((vazias + 1))
+    done < <(find "$ICLOUD_DIR" -type d -empty -not -path '*/.Trash/*' 2>/dev/null)
+    printf '  %d pasta(s) recriada(s)\n' "$vazias"
 fi
 
 # --- resumo -----------------------------------------------------------------
 
+DECORRIDO=$(( $(date +%s) - INICIO ))
 echo
 log "${BOLD}=== RESUMO ===${NC}"
-log "  transferidos : ${GREEN}${ok}${NC}"
-log "  ja feitos    : ${skip}"
-log "  pacotes      : ${bundles} (enviados inteiros)"
-log "  no Seagate   : ${YELLOW}${big}${NC}"
-log "  falhas       : ${RED}${fail}${NC}"
-log "  volume       : ${BOLD}$(human "$bytes_enviados")${NC}"
+log "  lotes        : ${lote_n}"
+log "  transferidos : ${GREEN}${enviados}${NC}"
+log "  no Seagate   : ${YELLOW}${grandes}${NC}"
+log "  com problema : ${RED}${falhados}${NC}"
+log "  tempo        : $((DECORRIDO / 3600))h $(((DECORRIDO % 3600) / 60))min"
+log "  disco livre  : $(human "$(free_bytes)")"
 echo
 log "  estado : $DONE_FILE"
 log "  falhas : $FAIL_FILE"
 log "  log    : $LOG_FILE"
 
-if (( fail > 0 )); then
+if (( falhados > 0 )); then
     echo
-    log "${YELLOW}Rode o script de novo para tentar as falhas outra vez${NC}"
-    log "${YELLOW}(os concluidos sao pulados automaticamente).${NC}"
+    log "${YELLOW}Rode de novo para tentar os que ficaram (os prontos sao pulados).${NC}"
 fi
