@@ -47,7 +47,9 @@ TRANSFERS="${TRANSFERS:-8}"                                      # uploads simul
 CHECKERS="${CHECKERS:-16}"
 MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
 MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((4 * 1024 * 1024 * 1024))}"  # margem de disco
-DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # espera por lote
+DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # teto de espera por lote
+STALL_SECONDS="${STALL_SECONDS:-120}"                            # desiste apos este tempo sem progresso
+PREFETCH="${PREFETCH:-}"                                         # quantos pedir adiantado (vazio = 1 lote)
 
 JOB_SLUG=$(basename "$ICLOUD_DIR" | sed 's/[^A-Za-z0-9_-]/_/g')
 STATE_DIR="${STATE_DIR:-$HOME/.icloud-migration/$JOB_SLUG}"
@@ -133,7 +135,11 @@ echo
 
 # --- estado do loop ---------------------------------------------------------
 
+: "${PREFETCH:=$BATCH_MAX_FILES}"
+
 BATCH_LIST="$STATE_DIR/.lote.txt"
+READY_LIST="$STATE_DIR/.prontos.txt"
+POS=0                     # linha atual de $PENDING, para saber o que pedir adiantado
 COMBINED="$STATE_DIR/.combined.txt"
 : > "$BATCH_LIST"
 lote_n=0; lote_bytes=0; lote_arqs=0
@@ -169,41 +175,80 @@ flush_lote() {
         brctl download "$ICLOUD_DIR/$rel" 2>/dev/null
     done < "$BATCH_LIST"
 
-    local esperou=0 faltando=0
+    # Espera ate' todos ficarem prontos, mas desiste se os bytes materializados
+    # pararem de crescer por STALL_SECONDS. Um unico arquivo travado nao pode
+    # segurar o lote inteiro parado ate' o timeout com a banda de upload ociosa.
+    local esperou=0 faltando=0 mat=0 mat_ant=-1 parado=0
     while (( esperou < DOWNLOAD_TIMEOUT )); do
-        faltando=0
+        faltando=0; mat=0
         while IFS= read -r rel; do
             local f="$ICLOUD_DIR/$rel"
             local lg al
             lg=$(stat -f%z "$f" 2>/dev/null || echo 0)
             al=$(( $(stat -f%b "$f" 2>/dev/null || echo 0) * 512 ))
+            mat=$((mat + al))
             (( al < lg )) && faltando=$((faltando + 1))
         done < "$BATCH_LIST"
         (( faltando == 0 )) && break
+
+        if (( mat > mat_ant )); then
+            parado=0; mat_ant=$mat
+        else
+            parado=$((parado + 3))
+            (( parado >= STALL_SECONDS )) && break
+        fi
         sleep 3; esperou=$((esperou + 3))
         (( esperou % 30 == 0 )) && printf '.'
     done
 
+    # so' entram no envio os que estao inteiros em disco
+    : > "$READY_LIST"
+    local ready_bytes=0 ready_n=0
+    while IFS= read -r rel; do
+        local f="$ICLOUD_DIR/$rel"
+        local lg al
+        lg=$(stat -f%z "$f" 2>/dev/null || echo 0)
+        al=$(( $(stat -f%b "$f" 2>/dev/null || echo 0) * 512 ))
+        if (( lg > 0 && al >= lg )); then
+            printf '%s\n' "$rel" >> "$READY_LIST"
+            ready_bytes=$((ready_bytes + lg)); ready_n=$((ready_n + 1))
+        fi
+    done < "$BATCH_LIST"
+
     t1=$(date +%s); t_baixa=$((t1 - t0)); t0=$t1
     if (( faltando > 0 )); then
-        printf ' %s%d nao baixaram%s (%ds)\n' "$YELLOW" "$faltando" "$NC" "$t_baixa"
+        printf ' %s%d de %d prontos%s (%ds) — o resto fica p/ depois\n' \
+            "$YELLOW" "$ready_n" "$lote_arqs" "$NC" "$t_baixa"
     else
         printf ' ok (%ds)\n' "$t_baixa"
     fi
+
+    if (( ready_n == 0 )); then
+        printf '  %snada pronto — pulando lote%s\n\n' "$YELLOW" "$NC"
+        : > "$BATCH_LIST"; lote_bytes=0; lote_arqs=0
+        return 0
+    fi
+
+    # Pipeline: pede ja' o download do proximo lote, para o iCloud trabalhar
+    # enquanto este sobe. Sem isso, uma fase sempre espera a outra terminar.
+    sed -n "$((POS + 1)),$((POS + PREFETCH))p" "$PENDING" 2>/dev/null \
+        | while IFS= read -r rel; do
+              brctl download "$ICLOUD_DIR/$rel" >/dev/null 2>&1
+          done &
 
     # ---- 2. sobe o lote inteiro numa chamada ----
     # --files-from limita a copia aos arquivos do lote; --no-traverse evita
     # listar o destino inteiro a cada lote, que ficaria caro conforme ele cresce.
     printf '  enviando (%d em paralelo)...' "$TRANSFERS"
     rclone copy "$ICLOUD_DIR" "$DEST_ROOT" \
-        --files-from "$BATCH_LIST" \
+        --files-from "$READY_LIST" \
         --transfers "$TRANSFERS" --checkers "$CHECKERS" \
         --drive-chunk-size 32M --retries 3 --low-level-retries 10 \
         --no-traverse --stats 0 >>"$LOG_FILE" 2>&1
     t1=$(date +%s); t_sobe=$((t1 - t0)); t0=$t1
     if (( t_sobe > 0 )); then
         printf ' ok (%ds, %.0f Mbps)\n' "$t_sobe" \
-            "$(bc -l <<< "$lote_bytes * 8 / 1000000 / $t_sobe")"
+            "$(bc -l <<< "$ready_bytes * 8 / 1000000 / $t_sobe")"
     else
         printf ' ok (%ds)\n' "$t_sobe"
     fi
@@ -213,7 +258,7 @@ flush_lote() {
     # arquivo com defeito nao condena o lote todo — so' ele volta pra fila.
     printf '  verificando...'
     rclone check "$ICLOUD_DIR" "$DEST_ROOT" \
-        --files-from "$BATCH_LIST" --size-only \
+        --files-from "$READY_LIST" --size-only \
         --combined "$COMBINED" >>"$LOG_FILE" 2>&1
 
     local ok_n=0 bad_n=0
@@ -234,7 +279,7 @@ flush_lote() {
         while IFS= read -r rel; do
             printf '%s\tverificacao sem resultado\n' "$rel" >> "$FAIL_FILE"
             bad_n=$((bad_n + 1))
-        done < "$BATCH_LIST"
+        done < "$READY_LIST"
     fi
 
     t1=$(date +%s); t_confere=$((t1 - t0))
@@ -248,7 +293,7 @@ flush_lote() {
 
     enviados=$((enviados + ok_n))
     falhados=$((falhados + bad_n))
-    bytes_ok=$((bytes_ok + lote_bytes))
+    bytes_ok=$((bytes_ok + ready_bytes))
 
     # ---- ritmo e previsao ----
     local agora decorrido taxa restantes eta
@@ -269,6 +314,7 @@ flush_lote() {
 # --- monta e despacha os lotes ----------------------------------------------
 
 while IFS= read -r rel; do
+    POS=$((POS + 1))
     arquivo="$ICLOUD_DIR/$rel"
     tam=$(stat -f%z "$arquivo" 2>/dev/null || echo 0)
 
