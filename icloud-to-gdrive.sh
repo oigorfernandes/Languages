@@ -223,7 +223,7 @@ flush_lote() {
             if [[ "$marca" == "=" ]]; then
                 printf '%s\n' "$rel" >> "$DONE_FILE"
                 ok_n=$((ok_n + 1))
-                $EVICT_AFTER_UPLOAD && brctl evict "$ICLOUD_DIR/$rel" 2>/dev/null
+                $EVICT_AFTER_UPLOAD && brctl evict "$ICLOUD_DIR/$rel" >/dev/null 2>&1
             else
                 printf '%s\tdivergente (%s)\n' "$rel" "$marca" >> "$FAIL_FILE"
                 bad_n=$((bad_n + 1))
@@ -283,7 +283,7 @@ while IFS= read -r rel; do
                 if rclone copyto "$arquivo" "$SEAGATE_DIR/$rel" --retries 3 \
                      --stats 0 >>"$LOG_FILE" 2>&1; then
                     printf '%s\n' "$rel" >> "$DONE_FILE"
-                    $EVICT_AFTER_UPLOAD && brctl evict "$arquivo" 2>/dev/null
+                    $EVICT_AFTER_UPLOAD && brctl evict "$arquivo" >/dev/null 2>&1
                 else
                     printf '%s\tcopia pro HD falhou\n' "$rel" >> "$FAIL_FILE"
                 fi
