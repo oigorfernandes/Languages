@@ -41,12 +41,12 @@ else
     ICLOUD_DIR="$ICLOUD_ROOT"
 fi
 
-BATCH_BYTES="${BATCH_BYTES:-$((2 * 1024 * 1024 * 1024))}"        # ~2GB por lote
-BATCH_MAX_FILES="${BATCH_MAX_FILES:-400}"                        # teto de itens
-TRANSFERS="${TRANSFERS:-8}"                                      # uploads simultaneos
-CHECKERS="${CHECKERS:-16}"
+BATCH_BYTES="${BATCH_BYTES:-$((6 * 1024 * 1024 * 1024))}"        # ~6GB por lote
+BATCH_MAX_FILES="${BATCH_MAX_FILES:-1500}"                       # teto de itens
+TRANSFERS="${TRANSFERS:-24}"                                     # uploads simultaneos
+CHECKERS="${CHECKERS:-32}"
 MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
-MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((4 * 1024 * 1024 * 1024))}"  # margem de disco
+MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((3 * 1024 * 1024 * 1024))}"  # margem de disco
 DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # teto de espera por lote
 STALL_SECONDS="${STALL_SECONDS:-120}"                            # desiste apos este tempo sem progresso
 PREFETCH="${PREFETCH:-}"                                         # quantos pedir adiantado (vazio = 1 lote)
