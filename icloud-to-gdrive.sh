@@ -64,7 +64,7 @@ EVICT_AFTER_UPLOAD="${EVICT_AFTER_UPLOAD:-true}"
 # ----------------------------------------------------------------------------
 
 DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+for a in "$@"; do [[ "$a" == "--dry-run" ]] && DRY_RUN=true; done
 
 mkdir -p "$STATE_DIR"
 touch "$DONE_FILE" "$FAIL_FILE"
@@ -127,15 +127,40 @@ echo
 # ordenadas de uma vez — em vez de um `grep` por arquivo, que com 31 mil itens
 # viraria dezenas de milhoes de comparacoes.
 
-log "${BOLD}Varrendo...${NC}"
-
 ALL_FILE="$STATE_DIR/.todos.txt"
 PENDING="$STATE_DIR/.pendentes.txt"
 
-find "$ICLOUD_DIR" -type f \
-     ! -name '.DS_Store' ! -name '.localized' ! -name '*.icloud' \
-     ! -path '*/.Trash/*' -print 2>/dev/null \
-    | sed "s|^${ICLOUD_DIR}/||" | LC_ALL=C sort > "$ALL_FILE"
+# A varredura consulta metadados de dezenas de milhares de arquivos e o iCloud
+# responde devagar quando o daemon esta' ocupado, entao ela pode levar muitos
+# minutos. A lista nao muda de minuto para minuto: reaproveita a anterior
+# enquanto estiver fresca. Use --rescan para forcar.
+SCAN_CACHE_MIN="${SCAN_CACHE_MIN:-720}"
+RESCAN=false
+for a in "$@"; do [[ "$a" == "--rescan" ]] && RESCAN=true; done
+usar_cache=false
+if ! $RESCAN && [[ -s "$ALL_FILE" ]] \
+   && [[ -n "$(find "$ALL_FILE" -mmin "-$SCAN_CACHE_MIN" 2>/dev/null)" ]]; then
+    usar_cache=true
+fi
+
+if $usar_cache; then
+    log "${BOLD}Reaproveitando a lista de $(date -r "$ALL_FILE" '+%H:%M')${NC} (--rescan refaz)"
+else
+    log "${BOLD}Varrendo... (pode demorar varios minutos)${NC}"
+    # Escreve num temporario e so' troca no fim: uma varredura interrompida
+    # nao pode destruir a lista boa da execucao anterior.
+    find "$ICLOUD_DIR" -type f \
+         ! -name '.DS_Store' ! -name '.localized' ! -name '*.icloud' \
+         ! -path '*/.Trash/*' -print 2>/dev/null \
+        | sed "s|^${ICLOUD_DIR}/||" | LC_ALL=C sort > "$ALL_FILE.tmp"
+    if [[ -s "$ALL_FILE.tmp" ]]; then
+        mv "$ALL_FILE.tmp" "$ALL_FILE"
+    else
+        rm -f "$ALL_FILE.tmp"
+        log "${RED}A varredura nao retornou nada. Abortando sem mexer no estado.${NC}"
+        exit 1
+    fi
+fi
 
 TOTAL=$(wc -l < "$ALL_FILE" | tr -d ' ')
 LC_ALL=C sort -u "$DONE_FILE" > "$STATE_DIR/.feitos.txt"
