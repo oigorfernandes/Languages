@@ -46,6 +46,7 @@ BATCH_MAX_FILES="${BATCH_MAX_FILES:-1500}"                       # teto de itens
 TRANSFERS="${TRANSFERS:-24}"                                     # uploads simultaneos
 CHECKERS="${CHECKERS:-32}"
 MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-$((8 * 1024 * 1024 * 1024))}"  # acima disso, Seagate
+MAX_RETRY="${MAX_RETRY:-3}"                                      # devolucoes a' fila por arquivo
 MIN_FREE_BYTES="${MIN_FREE_BYTES:-$((3 * 1024 * 1024 * 1024))}"  # margem de disco
 DOWNLOAD_TIMEOUT="${DOWNLOAD_TIMEOUT:-3600}"                     # teto de espera por lote
 STALL_SECONDS="${STALL_SECONDS:-900}"                            # desiste apos este tempo sem progresso
@@ -60,6 +61,9 @@ LOG_FILE="$STATE_DIR/migracao.log"
 BATCH_LIST="$STATE_DIR/.lote.txt"
 READY_LIST="$STATE_DIR/.prontos.txt"
 PREFETCH_LIST="$STATE_DIR/.adiantados.txt"
+QUEUE="$STATE_DIR/.fila.txt"
+RETRY="$STATE_DIR/.retentar.txt"
+TRIES="$STATE_DIR/.tentativas.txt"
 
 EVICT_AFTER_UPLOAD="${EVICT_AFTER_UPLOAD:-true}"
 
@@ -212,7 +216,7 @@ flush_lote() {
 
     # Locais de verdade: sem isso os `read -r rel` daqui sobrescreveriam o `rel`
     # do laco principal, que continua valendo depois que esta funcao retorna.
-    local rel marca linha f lg al
+    local rel marca linha f lg al tentou
 
     local restam=$((FALTAM - enviados - falhados))
     printf '%s[lote %d]%s %d arquivos, %s  (restam %d)\n' \
@@ -292,6 +296,26 @@ flush_lote() {
         fi
     done < "$BATCH_LIST"
 
+    # Os que nao ficaram prontos continuam baixando em segundo plano. Devolve-os
+    # a' frente da fila: no proximo lote ja' costumam estar inteiros. Sem isso a
+    # execucao seguia adiante e so' os recuperava numa proxima invocacao.
+    local devolvidos=0
+    while IFS= read -r rel; do
+        grep -qxF "$rel" "$READY_LIST" 2>/dev/null && continue
+        # grep -c ja' imprime 0 quando nao acha, mas sai com status 1; um
+        # `|| echo 0` somaria um segundo zero e quebraria a comparacao numerica.
+        local tentou
+        tentou=$(grep -cxF "$rel" "$TRIES" 2>/dev/null || true)
+        : "${tentou:=0}"
+        if (( tentou < MAX_RETRY )); then
+            printf '%s\n' "$rel" >> "$RETRY"
+            printf '%s\n' "$rel" >> "$TRIES"
+            devolvidos=$((devolvidos + 1))
+        fi
+    done < "$BATCH_LIST"
+    (( devolvidos > 0 )) && printf '  %d devolvido(s) para a frente da fila\n' "$devolvidos"
+
+
     t1=$(date +%s); t_baixa=$((t1 - t0)); t0=$t1
     if (( faltando > 0 )); then
         printf ' %s%d de %d prontos%s (%ds) — o resto fica p/ depois\n' \
@@ -311,7 +335,7 @@ flush_lote() {
     # Guarda o que foi pedido adiantado: estes arquivos ficam materializados em
     # disco sem constar no lote, entao sem esta lista ninguem os libera se a
     # execucao morrer antes de chegar neles.
-    sed -n "$((POS + 1)),$((POS + PREFETCH))p" "$PENDING" 2>/dev/null > "$PREFETCH_LIST"
+    head -n "$PREFETCH" "$QUEUE" 2>/dev/null > "$PREFETCH_LIST"
     while IFS= read -r rel; do
         brctl download "$ICLOUD_DIR/$rel" >/dev/null 2>&1
     done < "$PREFETCH_LIST" &
@@ -393,59 +417,81 @@ flush_lote() {
 
 # --- monta e despacha os lotes ----------------------------------------------
 
-while IFS= read -r rel; do
-    POS=$((POS + 1))
-    arquivo="$ICLOUD_DIR/$rel"
-    tam=$(stat -f%z "$arquivo" 2>/dev/null || echo 0)
+# Fila de trabalho: comeca como a lista de pendentes, mas cresce pela frente
+# com os arquivos devolvidos por flush_lote. Assim os atrasados de um lote sao
+# reaproveitados no lote seguinte — quando ja' terminaram de baixar — em vez de
+# ficarem para uma proxima invocacao do script.
+cp "$PENDING" "$QUEUE"
+: > "$RETRY"; : > "$TRIES"
+parar=false
 
-    # arquivo gigante: vai sozinho pro HD externo
-    if (( tam > MAX_SIZE_BYTES )); then
-        flush_lote
-        if [[ -d "$SEAGATE_DIR" ]]; then
-            printf '%s[grande]%s %s (%s) -> Seagate\n' "$YELLOW" "$NC" "$rel" "$(human "$tam")"
-            if ! $DRY_RUN; then
-                mkdir -p "$(dirname "$SEAGATE_DIR/$rel")"
-                brctl download "$arquivo" 2>/dev/null
-                if rclone copyto "$arquivo" "$SEAGATE_DIR/$rel" --retries 3 \
-                     --stats 0 >>"$LOG_FILE" 2>&1; then
-                    printf '%s\n' "$rel" >> "$DONE_FILE"
-                    $EVICT_AFTER_UPLOAD && brctl evict "$arquivo" >/dev/null 2>&1
-                else
-                    printf '%s\tcopia pro HD falhou\n' "$rel" >> "$FAIL_FILE"
-                fi
+while [[ -s "$QUEUE" ]]; do
+    consumidos=0
+    while IFS= read -r rel; do
+        consumidos=$((consumidos + 1))
+        arquivo="$ICLOUD_DIR/$rel"
+        tam=$(stat -f%z "$arquivo" 2>/dev/null || echo 0)
+
+        # arquivo gigante: vai sozinho pro HD externo
+        if (( tam > MAX_SIZE_BYTES )); then
+            if (( lote_arqs > 0 )); then
+                consumidos=$((consumidos - 1)); break   # fecha o lote antes
             fi
-        else
-            printf '%s[grande]%s %s (%s) — HD ausente, pulando\n' \
-                "$YELLOW" "$NC" "$rel" "$(human "$tam")"
-            printf '%s\tgrande, HD ausente\n' "$rel" >> "$FAIL_FILE"
+            if [[ -d "$SEAGATE_DIR" ]]; then
+                printf '%s[grande]%s %s (%s) -> Seagate\n' "$YELLOW" "$NC" "$rel" "$(human "$tam")"
+                if ! $DRY_RUN; then
+                    mkdir -p "$(dirname "$SEAGATE_DIR/$rel")"
+                    brctl download "$arquivo" >/dev/null 2>&1
+                    if rclone copyto "$arquivo" "$SEAGATE_DIR/$rel" --retries 3 \
+                         --stats 0 >>"$LOG_FILE" 2>&1; then
+                        printf '%s\n' "$rel" >> "$DONE_FILE"
+                        $EVICT_AFTER_UPLOAD && brctl evict "$arquivo" >/dev/null 2>&1
+                    else
+                        printf '%s\tcopia pro HD falhou\n' "$rel" >> "$FAIL_FILE"
+                    fi
+                fi
+            else
+                printf '%s[grande]%s %s (%s) — HD ausente, pulando\n' \
+                    "$YELLOW" "$NC" "$rel" "$(human "$tam")"
+                printf '%s\tgrande, HD ausente\n' "$rel" >> "$FAIL_FILE"
+            fi
+            grandes=$((grandes + 1))
+            break
         fi
-        grandes=$((grandes + 1))
-        continue
-    fi
 
-    # o lote nao pode passar do limite de bytes nem estourar o disco
-    livre=$(free_bytes)
-    teto=$(( livre - MIN_FREE_BYTES ))
-    (( teto > BATCH_BYTES )) && teto=$BATCH_BYTES
-
-    if (( lote_arqs > 0 )) && \
-       { (( lote_bytes + tam > teto )) || (( lote_arqs >= BATCH_MAX_FILES )); }; then
-        flush_lote
         livre=$(free_bytes)
+        if (( tam > livre - MIN_FREE_BYTES )); then
+            log "${RED}ABORTANDO: sem espaco para $rel ($(human "$tam")).${NC}"
+            log "${RED}Libere disco e rode de novo — ele retoma daqui.${NC}"
+            consumidos=$((consumidos - 1)); parar=true; break
+        fi
+
+        teto=$(( livre - MIN_FREE_BYTES ))
+        (( teto > BATCH_BYTES )) && teto=$BATCH_BYTES
+        if (( lote_arqs > 0 )) && \
+           { (( lote_bytes + tam > teto )) || (( lote_arqs >= BATCH_MAX_FILES )); }; then
+            consumidos=$((consumidos - 1)); break
+        fi
+
+        printf '%s\n' "$rel" >> "$BATCH_LIST"
+        lote_bytes=$((lote_bytes + tam))
+        lote_arqs=$((lote_arqs + 1))
+    done < "$QUEUE"
+
+    if (( consumidos > 0 )); then
+        tail -n +$((consumidos + 1)) "$QUEUE" > "$QUEUE.tmp" && mv "$QUEUE.tmp" "$QUEUE"
     fi
 
-    if (( tam > livre - MIN_FREE_BYTES )); then
-        log "${RED}ABORTANDO: sem espaco para $rel ($(human "$tam")).${NC}"
-        log "${RED}Libere disco e rode de novo — ele retoma daqui.${NC}"
-        break
+    flush_lote
+
+    if [[ -s "$RETRY" ]]; then
+        cat "$RETRY" "$QUEUE" > "$QUEUE.tmp" && mv "$QUEUE.tmp" "$QUEUE"
+        : > "$RETRY"
     fi
 
-    printf '%s\n' "$rel" >> "$BATCH_LIST"
-    lote_bytes=$((lote_bytes + tam))
-    lote_arqs=$((lote_arqs + 1))
-done < "$PENDING"
-
-flush_lote
+    $parar && break
+    (( consumidos == 0 && lote_arqs == 0 )) && break
+done
 
 # --- pastas vazias ----------------------------------------------------------
 
