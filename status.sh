@@ -15,16 +15,21 @@ B=$'\033[1m'; V=$'\033[0;32m'; A=$'\033[0;33m'; R=$'\033[0;31m'; N=$'\033[0m'
 gb() { awk -v b="$1" 'BEGIN {printf "%.1f GB", b/1073741824}'; }
 
 # --- esta' rodando? ---
-# pgrep -c ja' imprime 0 quando nao acha e sai com status 1: um `|| echo 0`
-# somaria um segundo zero e quebraria as comparacoes numericas abaixo.
-procs=$(pgrep -fc "icloud-to-gdrive" 2>/dev/null || true)
+# O pgrep do macOS nao tem -c (isso e' do Linux): a chamada falhava, a contagem
+# virava zero e o status dizia "parado" com a migracao rodando. ps + grep serve
+# nos dois sistemas. Sao esperados ate' 2 processos — o laco e o script — e o
+# laco sozinho durante a pausa entre execucoes.
+procs=$(ps ax -o command= 2>/dev/null \
+        | grep "icloud-to-gdrive.sh" \
+        | grep -cv "grep\|status.sh")
 : "${procs:=0}"
-if (( procs == 1 )); then
-    printf '%sestado:%s %srodando%s\n' "$B" "$N" "$V" "$N"
-elif (( procs == 0 )); then
+
+if (( procs == 0 )); then
     printf '%sestado:%s %sparado%s\n' "$B" "$N" "$R" "$N"
+elif (( procs <= 2 )); then
+    printf '%sestado:%s %srodando%s\n' "$B" "$N" "$V" "$N"
 else
-    printf '%sestado:%s %s%d processos — deveria ser 1, eles brigam entre si%s\n' \
+    printf '%sestado:%s %s%d processos — mais de uma copia, elas se atrapalham%s\n' \
         "$B" "$N" "$R" "$procs" "$N"
 fi
 
