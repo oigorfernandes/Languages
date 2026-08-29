@@ -299,7 +299,7 @@ flush_lote() {
     # Os que nao ficaram prontos continuam baixando em segundo plano. Devolve-os
     # a' frente da fila: no proximo lote ja' costumam estar inteiros. Sem isso a
     # execucao seguia adiante e so' os recuperava numa proxima invocacao.
-    local devolvidos=0
+    local devolvidos=0 desistidos=0
     while IFS= read -r rel; do
         grep -qxF "$rel" "$READY_LIST" 2>/dev/null && continue
         # grep -c ja' imprime 0 quando nao acha, mas sai com status 1; um
@@ -311,9 +311,21 @@ flush_lote() {
             printf '%s\n' "$rel" >> "$RETRY"
             printf '%s\n' "$rel" >> "$TRIES"
             devolvidos=$((devolvidos + 1))
+        else
+            # Esgotou as devolucoes: sai da fila para nao travar o resto. Precisa
+            # ficar registrado — senao o arquivo desaparece sem ter subido e sem
+            # aparecer em lugar nenhum, e a migracao parece completa sem estar.
+            printf '%s\tnao baixou do iCloud apos %d tentativas\n' \
+                "$rel" "$MAX_RETRY" >> "$FAIL_FILE"
+            desistidos=$((desistidos + 1))
         fi
     done < "$BATCH_LIST"
     (( devolvidos > 0 )) && printf '  %d devolvido(s) para a frente da fila\n' "$devolvidos"
+    if (( desistidos > 0 )); then
+        printf '  %s%d desistido(s) apos %d tentativas — anotados em falhas.txt%s\n' \
+            "$YELLOW" "$desistidos" "$MAX_RETRY" "$NC"
+        falhados=$((falhados + desistidos))
+    fi
 
 
     t1=$(date +%s); t_baixa=$((t1 - t0)); t0=$t1
