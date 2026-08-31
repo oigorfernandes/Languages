@@ -15,13 +15,10 @@ B=$'\033[1m'; V=$'\033[0;32m'; A=$'\033[0;33m'; R=$'\033[0;31m'; N=$'\033[0m'
 gb() { awk -v b="$1" 'BEGIN {printf "%.1f GB", b/1073741824}'; }
 
 # --- esta' rodando? ---
-# O pgrep do macOS nao tem -c (isso e' do Linux): a chamada falhava, a contagem
-# virava zero e o status dizia "parado" com a migracao rodando. ps + grep serve
-# nos dois sistemas. Sao esperados ate' 2 processos — o laco e o script — e o
-# laco sozinho durante a pausa entre execucoes.
-procs=$(ps ax -o command= 2>/dev/null \
-        | grep "icloud-to-gdrive.sh" \
-        | grep -cv "grep\|status.sh")
+# Detectar o processo ja' falhou de duas formas aqui: `pgrep -c` nao existe no
+# macOS, e `ps -o command=` corta a linha na largura do terminal, escondendo o
+# texto procurado. pgrep -f casa contra o argv inteiro; contar com wc evita o -c.
+procs=$(pgrep -f "icloud-to-gdrive.sh" 2>/dev/null | wc -l | tr -d ' ')
 : "${procs:=0}"
 
 if (( procs == 0 )); then
