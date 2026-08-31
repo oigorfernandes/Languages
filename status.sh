@@ -15,19 +15,22 @@ B=$'\033[1m'; V=$'\033[0;32m'; A=$'\033[0;33m'; R=$'\033[0;31m'; N=$'\033[0m'
 gb() { awk -v b="$1" 'BEGIN {printf "%.1f GB", b/1073741824}'; }
 
 # --- esta' rodando? ---
-# Detectar o processo ja' falhou de duas formas aqui: `pgrep -c` nao existe no
-# macOS, e `ps -o command=` corta a linha na largura do terminal, escondendo o
-# texto procurado. pgrep -f casa contra o argv inteiro; contar com wc evita o -c.
-procs=$(pgrep -f "icloud-to-gdrive.sh" 2>/dev/null | wc -l | tr -d ' ')
-: "${procs:=0}"
+# Uma execucao saudavel aparece como TRES processos — caffeinate, o laco
+# `while true` e o script — porque os tres carregam o texto do comando no argv.
+# Para saber quantas copias existem de fato, conta os caffeinate: um por
+# lancamento. (pgrep -c nao existe no macOS, e `ps -o command=` corta a linha na
+# largura do terminal; por isso pgrep -f + wc.)
+vivo=$(pgrep -f "icloud-to-gdrive.sh" 2>/dev/null | wc -l | tr -d ' ')
+copias=$(pgrep -f "caffeinate -ims bash" 2>/dev/null | wc -l | tr -d ' ')
+: "${vivo:=0}"; : "${copias:=0}"
 
-if (( procs == 0 )); then
+if (( vivo == 0 )); then
     printf '%sestado:%s %sparado%s\n' "$B" "$N" "$R" "$N"
-elif (( procs <= 2 )); then
-    printf '%sestado:%s %srodando%s\n' "$B" "$N" "$V" "$N"
+elif (( copias > 1 )); then
+    printf '%sestado:%s %s%d copias rodando — elas se atrapalham, deixe so uma%s\n' \
+        "$B" "$N" "$R" "$copias" "$N"
 else
-    printf '%sestado:%s %s%d processos — mais de uma copia, elas se atrapalham%s\n' \
-        "$B" "$N" "$R" "$procs" "$N"
+    printf '%sestado:%s %srodando%s\n' "$B" "$N" "$V" "$N"
 fi
 
 # --- progresso ---
