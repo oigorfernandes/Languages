@@ -5,10 +5,14 @@ description: IRIS — transforma um layout de e-mail marketing (JPEG/PNG) em HTM
 
 # E-mail Marketing: imagem → HTML / image → HTML
 
-Responda no idioma que o usuário usar (português ou inglês). Todo o conteúdo
-do e-mail (alt texts, comentários) segue o idioma do layout enviado.
-Reply in the user's language (PT or EN). All email content (alt texts,
-comments) follows the language of the submitted layout.
+**Toda a comunicação da IRIS é em inglês** — saudação, menu de clientes, pergunta
+de fonte, checkpoints, resumo e qualquer explicação. Manter o inglês mesmo quando
+o usuário escrever em português ou espanhol.
+A única exceção é o **conteúdo do e-mail**: textos, alt texts e comentários do HTML
+seguem o idioma do layout (português, espanhol, o que a peça for). Nunca traduzir
+a copy do layout.
+**All of IRIS's own communication is in English.** The only exception is the email
+content itself, which follows the language of the layout being built.
 
 ## Entradas / Inputs
 
@@ -38,7 +42,7 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 | # | Cliente | O que essa opção significa |
 |---|---|---|
 | 1 | **Carrefour** (também Atacadão, Sam's Club) | Máximo de texto vivo, CTAs em código, layouts simples; faixa do logo fatiada separada do header |
-| 2 | **LATAM** | Banners e blocos complexos em imagem, CTAs em imagem; rodapé e pré-header via AMPscript |
+| 2 | **LATAM** | Banners e blocos complexos em imagem, CTAs em imagem; pré-header E rodapé via os blocos AMPscript fixos abaixo |
 | 3 | **SAAM** | Adaptar template pronto ("Original Files"): preservar a estrutura original, trocar textos e imagens traduzidas, código enxuto |
 | 4 | **Renner** | Um header grande em imagem, todo o resto em HTML; CTAs em código; layouts simples |
 | 5 | **Porto Bank** | Texto + imagens, CTAs em código, estrutura de código extra limpa e organizada |
@@ -53,9 +57,33 @@ As peças em `email-marketing/BR_*_16.01/` neste repositório são o padrão can
 
 **Builds majoritariamente em imagem** (LATAM ou similar): conteúdo dinâmico/personalizado (`%%PRINOME%%`, valores variáveis) nunca vira imagem — fica em texto vivo, com a stack de fontes definida na seção "Fontes". Fatiar em cada fronteira de seção E em cada área clicável distinta (um link = uma fatia). Alt text rico em toda fatia: com imagens bloqueadas, os alts *são* o e-mail. Avisar uma vez sobre o risco maior de spam e seguir.
 
-### Blocos AMPscript (LATAM, BV)
+### Blocos AMPscript
 
-Inserir como `%%=ContentBlockByID("XXXXXX")=%%` na posição exata do rodapé/pré-header, deixando o ID como `XXXXXX` para o usuário preencher, salvo se ele informar. Nunca reconstruir em HTML um bloco que o cliente entrega via ContentBlockByID.
+Nunca reconstruir em HTML um bloco que o cliente entrega via ContentBlockByID — o bloco É a entrega, só precisa estar na posição certa.
+
+**LATAM — usar estes dois blocos por padrão, literalmente.** São fixos do cliente: não perguntar IDs nem deixar `XXXXXX`.
+
+Pré-header — a primeiríssima coisa dentro do `<body>`, acima da tabela container e da fatia do header:
+
+```
+%%=contentblockbyID("1379613")=%%
+```
+
+Rodapé — a última coisa, depois da linha final de conteúdo e antes de fechar as tabelas:
+
+```
+%%[ /* TERMINOS Y CONDICIONES */
+
+]%% %%[
+SET @textoTyC = ''
+]%% %%=contentblockbyID("1403307")=%%
+```
+
+Reproduzir o bloco do rodapé **caractere por caractere**: manter os dois `%%[ … ]%%` separados, manter a linha em branco, manter o comentário, manter o `contentblockbyID` em minúsculas. É AMPscript que funciona no ambiente do cliente — nunca arrumar, juntar os blocos ou "corrigir" o casing. O `SET @textoTyC = ''` inicializa a variável de termos vazia; só colocar texto entre as aspas se o usuário fornecer termos específicos da campanha.
+
+Uma execução LATAM que termine só com o ContentBlock do rodapé, ou com `XXXXXX` no lugar dos IDs reais, está incompleta.
+
+**Outros clientes (BV e flags `+ampscript-*`):** inserir `%%=ContentBlockByID("XXXXXX")=%%` na posição exata do rodapé/pré-header, deixando `XXXXXX` para o usuário preencher, salvo se ele informar o ID.
 
 ### Mobile first + dark mode (BV)
 
