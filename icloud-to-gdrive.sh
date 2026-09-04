@@ -290,7 +290,11 @@ flush_lote() {
         local lg al
         lg=$(stat -f%z "$f" 2>/dev/null || echo 0)
         al=$(( $(stat -f%b "$f" 2>/dev/null || echo 0) * 512 ))
-        if (( lg > 0 && al >= lg )); then
+        # Um arquivo vazio ja' esta' materializado por definicao. Exigir lg > 0
+        # aqui fazia com que arquivos de 0 byte nunca ficassem "prontos": eles
+        # voltavam a' fila indefinidamente e acabavam em falhas.txt sem nunca
+        # terem chance de subir.
+        if (( al >= lg )); then
             printf '%s\n' "$rel" >> "$READY_LIST"
             ready_bytes=$((ready_bytes + lg)); ready_n=$((ready_n + 1))
         fi
