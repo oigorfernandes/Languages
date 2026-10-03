@@ -94,3 +94,38 @@ pegaria sem assistir aos nove vídeos inteiros.
 - Branch desta linha de trabalho: `claude/skill-testing-68brx9`.
 - Ao entregar documento ou deck, **dizer o que foi verificado e o que não foi**.
   Sem QA visual neste ambiente, overflow de texto é sempre risco em aberto.
+
+---
+
+## Cérebro
+
+Quando o Igor disser **"SALVA NO CEREBRO"**, execute o procedimento abaixo.
+**O comando já é a autorização — não peça confirmação.**
+
+### 1. Criar a nota
+
+Salve o que importa da conversa como uma **nota nova** (Google Doc), usando os
+conectores do **Google Drive** e do **Google Docs**.
+
+- **Pasta de destino:** "Cérebro", no Google Drive do Igor
+  **ID:** `1zqEY64sckggQ3i3KPD5N8HYU48V1eOyM`
+- **Título:** data no formato `AAAA-MM-DD` + assunto
+  (ex.: `2026-10-03 Argus — blueprint Azure com extração de quadros`)
+- **Conteúdo:** o que importa da conversa — decisões, raciocínio, resultados,
+  pendências. Não é transcrição: é o que vale ser lembrado depois.
+- **Última linha da nota:** uma linha de **palavras-chave**.
+
+Sempre uma nota **nova**; nunca sobrescreva notas anteriores.
+
+### 2. Atualizar o índice
+
+Depois de criar a nota, acrescente **uma linha** com **resumo e palavras-chave**
+no documento **"00 Índice do Cérebro"**, que fica na mesma pasta.
+
+### Observações de execução
+
+- Se as ferramentas do Google Drive ou do Google Docs não estiverem disponíveis
+  na sessão, **diga isso claramente** em vez de salvar em outro lugar como
+  substituto silencioso.
+- "SALVA NO CEREBRO" grava **no Google Drive**. Gravar no repositório
+  (`CLAUDE.md`, `argus/`) é outra coisa, e só acontece se o Igor pedir.
