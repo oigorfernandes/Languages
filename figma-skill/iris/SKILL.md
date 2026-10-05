@@ -26,7 +26,7 @@ Optional inputs: list of links (without them use `#LINK` everywhere — never bl
 
 ## Source of truth: layers, not pixels
 
-- **Texts:** copy exactly from the text layers, including personalization tokens (`[NOME]`, `%%PRINOME%%`, `[R$ x.xxx]`, `XX de XX`) — never invent or fill values.
+- **Texts:** copy exactly from the text layers, including personalization tokens (`[NOME]`, `%%PRINOME%%`, `#!VALOR1!#`, `[R$ x.xxx]`, `XX de XX`) — never invent or fill values.
 - **Colors:** exact hex from fills.
 - **Typography:** read family, weight, size and line-height from the layers — never ask which font it is. Then apply the font rules below.
 - **Measurements:** widths, paddings, corner radii from the frame properties.
@@ -64,7 +64,7 @@ In the final summary, state which brand font was declared and what it falls back
 
 ## Client profiles — settle this BEFORE slicing
 
-**Standing rule for every client: 600px wide.** (LATAM once asked for 690px and reverted — never build 690px unless the user explicitly asks for it in this run.)
+**Standing rule: 600px wide for every client except Scotiabank, which is 768px.** (LATAM once asked for 690px and reverted — never build 690px unless the user explicitly asks for it in this run.)
 
 The whole slice plan depends on this, so settle it first.
 
@@ -78,7 +78,8 @@ The whole slice plan depends on this, so settle it first.
 | 6 | **RecargaPay** | Text + images, CTAs in code whenever possible, some blocks as image; little historical precedent — ask instead of assuming when in doubt |
 | 7 | **Sicredi** | Text + images, CTAs in code whenever possible, some blocks as image |
 | 8 | **BV** | More complex HTML: mobile first, explicit dark-mode treatment, preheader via AMPscript |
-| 9 | **Other / one-off** | Pick a base — `html-first` (max live text, CTAs in code), `hybrid` (code where clean, complex blocks as image), `image-first` (everything sliced, one slice per link) or `template` (adapt an existing file) — plus any flags: `+ampscript-footer`, `+ampscript-preheader`, `+mobile-first`, `+dark-mode`, `+clean-code` |
+| 9 | **Scotiabank** | Runs on Masterbase, not Salesforce. 768px canvas, the client's own CSS utility framework, CTAs as images, mandatory preheader/webview/legal apparatus — see the Scotiabank branch below |
+| 10 | **Other / one-off** | Pick a base — `html-first` (max live text, CTAs in code), `hybrid` (code where clean, complex blocks as image), `image-first` (everything sliced, one slice per link) or `template` (adapt an existing file) — plus any flags: `+ampscript-footer`, `+ampscript-preheader`, `+mobile-first`, `+dark-mode`, `+clean-code` |
 
 **SAAM ≠ Sam's Club.** Sam's Club is a Carrefour-group brand (row 1); SAAM is its own client, with the template-adaptation flow.
 
@@ -117,6 +118,89 @@ A LATAM run that ends with only the footer ContentBlock, or with `XXXXXX` in pla
 ### Mobile first + dark mode (BV)
 
 Fluid tables (`width:100%` with `max-width:600px`), stacking as the default behavior via `.stack`, tap targets ≥44px, and every colored block carrying `.dm-bg`/`.dm-txt` classes with `[data-ogsc]` fallbacks. Check that logos and icons still read on a dark background.
+
+### Scotiabank branch — its own framework, not the default skeleton
+
+Scotiabank runs on **Masterbase**, not Salesforce Marketing Cloud, and ships with its own CSS utility framework. The "Code standard" skeleton does NOT apply here: no `role="presentation"`, no `<custom name="opencounter">`, no `%%…%%` tokens, no `.stack` or `.dm-*` classes, no 600px container. Build on the client's own structure.
+
+**Canvas**
+
+- Email table is `width="768"` with `class="wrap-md-100"`, centered inside a `<table width="100%" bgcolor="#ffffff">`.
+- Inner content tables use **percentage** widths — 90%–92% is the norm; specific rows use 78%, 88% or 93%. Match the reference rather than normalizing them.
+- The file opens straight at `<html>`, with **no DOCTYPE**. Keep it that way.
+
+**Two breakpoints, not one**
+
+- `@media screen and (max-width: 768px)` — widths and column stacking
+- `@media screen and (max-width: 576px)` — type sizes, spacer heights, paddings
+- `@media (min-width: 768px)` — a few desktop-only margins
+
+**The `<style>` block is a framework — paste it verbatim**
+
+Copy the client's full style block unchanged into every build, including the Outlook/Hotmail resets (`#outlook a`, `.ExternalClass` family, `img{…}`, `a img{…}`, `.applelinks a`, the Emoji fix, `.tpl-content`) and the global link reset. Never rewrite, rename or invent classes — layout is done by **composing the existing utilities**:
+
+| Class family | Use |
+|---|---|
+| `wrap-md-100 / 95 / 90 / 85 / 80 / 75` | table width at ≤768px |
+| `resize-md-100 / 90 / 80` | image scales down at ≤768px |
+| `split-md`, `split-md-left/right`, `split-md-pb`, `split-md-pb-left/right` | columns stack to full width at ≤768px (`-pb` adds 25px bottom padding) |
+| `height-sm-0..5` | spacer height at ≤576px (0/10/20/30/40/50) |
+| `p-sm-0..5` | padding at ≤576px |
+| `font-size-sm-8/10/12/14/16/18/20/22/24/30/38` | type size at ≤576px |
+| `text-sm-left/center/right`, `mb-sm-*`, `w-sm-50`, `d-block`, `d-none` | alignment, margin, visibility |
+| `title` | drops headings to 25/31 at ≤576px |
+
+**Spacing uses spacer rows, not padding.** Vertical rhythm comes from `<tr><td height="N"></td></tr>`, carrying `class="height-sm-N"` when mobile needs a different value. Section spacing runs 35–45px. Do not convert these into padding on the content cell.
+
+**Masterbase tokens — never invent them, never translate them to AMPscript**
+
+| Token | Where it goes |
+|---|---|
+| `#!DES_PREHEADER!#` | inside the hidden preheader div, the first thing in `<body>` |
+| `#!webview!#` | the "ver este correo" link at the top |
+| `#!VALOR1!#`, `#!VALOR2!#`, `#!VALOR3!#`… | personalization fields in the copy, numbered in order of appearance |
+| `#!email!#` | the "Este correo fue enviado a:" line in the footer |
+| `#!masterunsubscribelink!#` | the unsubscribe link inside the legal paragraph |
+| `#! $utc formatOut='YYYY' locale='es' !#` | the copyright year |
+
+**Mandatory opening.** Hidden preheader div first, exactly like this:
+
+```html
+<div style="overflow:hidden!important;display:none!important;font-size:1px;color:#ffffff;line-height:1px;font-family:Arial;max-height:0px;max-width:0px;opacity:0;">#!DES_PREHEADER!# <br><br> &nbsp;</div>
+```
+
+Then, as the first row inside the 768 table, a 78%-wide block with the webview link right-aligned: "Si no puedes ver este correo, **haz clic aquí**" — `href="#!webview!#"`, link in `#009DD6`, 14px bold, surrounding text 12px `#606060`.
+
+**CTAs are images.** Buttons ship as PNG wrapped in `<a href target="_blank" rel="noopener noreferrer">` — never built as HTML buttons. Add `class="resize-md-100"` when the button should fill the width on mobile.
+
+**Palette**
+
+| Role | Hex |
+|---|---|
+| Primary red | `#EC111A` |
+| Secondary dark red | `#450000` |
+| Body text | `#252525` |
+| Headings | `#101010` |
+| Alt section background | `#F5EFE8` |
+| Link blue (webview, footer) | `#009DD6` |
+| Footer legal text | `#505050` |
+
+**Type scale** — Arial throughout, with `letter-spacing: 0.2px` on headings and body. That tracking is a signature of this client; keep it.
+
+| Role | Desktop | ≤576px |
+|---|---|---|
+| Greeting | 26 / 32 bold `#101010` | `title` → 25/31 |
+| Headline | 30 / 38 bold `#101010` | `title` → 25/31 |
+| Amount | 50 / 55 bold `#EC111A` | `font-size-sm-38` |
+| Section title | 30 / 38 bold `#450000` | — |
+| Body | 16–19 / 22–27 regular `#252525` | `font-size-sm-14` / `-18` |
+| Footer legal | 10 / 12 regular `#505050`, justified | `font-size-sm-8` |
+
+**The footer apparatus is mandatory and fixed in order:** logo, "© Scotiabank Perú. Todos los Derechos Reservados", "Por favor no responda a este correo…", "Síguenos en @ScotiabankPE" with the four social icons, the "Hablemos más simple" + TCEA block, the long legal paragraph ending in the unsubscribe link, the "Este correo fue enviado a: `#!email!#`" line, and the copyright-year row. Reproduce the legal copy **exactly as supplied** — never paraphrase, shorten, reflow or translate it, and never alter a TCEA figure.
+
+**Images** are hosted on `img.masterbase.com` — use the URLs the client supplies instead of local `images/` paths. When new artwork is needed, still build the `IRIS EXPORT` page so the client can upload the files, and leave each `src` as a clearly marked placeholder.
+
+**Language** is Spanish (Scotiabank Perú, currency `S/`). Copy stays in the layout's language, as always.
 
 ### SAAM branch — template adaptation, not slicing
 
@@ -169,6 +253,8 @@ How many slices is a judgement call driven by the client profile and the layout 
 If the layout changes later, the export frames stay valid — just re-export.
 
 ## Code standard (mandatory skeleton)
+
+**Does not apply to Scotiabank** — that client ships its own framework and its own skeleton; see the Scotiabank branch above.
 
 ```html
 <!DOCTYPE html>
