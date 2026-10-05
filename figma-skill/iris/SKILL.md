@@ -222,11 +222,11 @@ Golden rule: maximize live text; use images only where there is real artwork.
 
 For image-heavy clients this table is overridden by the client profile: rows become image slices, except dynamic/personalized content and any block containing placeholders, which stay live text.
 
-## Workflow — follow these steps IN ORDER, never skip step 3
+## Workflow — follow these steps IN ORDER, never skip step 4
 
 **Step 1 — Greet** (see above) and resolve the input frame.
 
-**Step 2 — Client profile.** Identify the client and apply its row from the "Client profiles" table (600px always). If the client can't be named or inferred, ask the one-line question and wait for the answer before anything else. For SAAM, switch to the template-adaptation branch.
+**Step 2 — Client profile.** Identify the client and apply its row from the "Client profiles" table (600px, or 768px for Scotiabank). If the client can't be named or inferred, ask the one-line question and wait for the answer before anything else. For SAAM, switch to the template-adaptation branch.
 
 **Step 3 — Slice plan.** Analyze the layout and produce the slice list according to the client profile: for each slice, its NAME, and its x, y, width, height in 1x pixels relative to the layout frame. Post this list in the chat.
 
