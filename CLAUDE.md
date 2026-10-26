@@ -47,11 +47,12 @@ Seções na ordem: `Como usar` · `Documentos fixos` (01 Quem sou eu, 02 Projeto
 
 ### Armadilhas já conhecidas ao escrever no Drive
 
-- **Converter HTML para Google Doc quebra emoji.** 🔴 e 🟡 viram caracteres corrompidos
-  (`ð´`, `ð¡`), e o negrito dentro de tabelas pode se perder. Se o conteúdo depender de
-  emoji, confira o resultado depois de criar e corrija, ou suba também uma versão em
-  markdown puro.
+- **Converter para Google Doc quebra emoji — em QUALQUER formato de origem.** Confirmado
+  com `text/html` e com `text/plain`: 🔴 e 🟡 viram caracteres corrompidos (`ð´`, `ð¡`).
+  Negrito dentro de tabelas também pode se perder na conversão de HTML.
+  **Se o conteúdo tiver emoji com significado, não converta** — suba o arquivo como
+  markdown puro (fiel byte a byte). Google Doc só para texto corrido de leitura.
 - **Para Google Doc formatado:** `create_file` com `contentMimeType: "text/html"`.
 - **Para arquivo fiel byte a byte:** `create_file` com o mime real e
-  `disableConversionToGoogleType: true`.
+  `disableConversionToGoogleType: true`. É o certo para skills, código e config.
 - **Sempre conferir o resultado** com `read_file_content` antes de reportar como pronto.
