@@ -4,7 +4,7 @@ description: >-
   Argus — revisor ortográfico da ACD para o canvas do Figma. Ao ser invocado, lê
   AUTOMATICAMENTE o texto do frame selecionado (ou da página indicada), revisa
   ortografia, acentuação, concordância, digitação e consistência em PT (BR/PT), EN,
-  ES (localizado por país), DE, NL, IT, FR, ID, MS, VI, ZH (simplificado e tradicional),
+  ES (localizado por país), DE, NL, PL, IT, FR, ID, MS, VI, ZH (simplificado e tradicional),
   JA, KO, HI e AR, e crava STICKY NOTES no canvas ao lado de cada achado, com o texto
   errado e a correção sugerida. As notas e o resumo são SEMPRE escritos no idioma
   escolhido pelo usuário. NÃO pede upload de arquivo — trabalha com o que já está
@@ -34,7 +34,7 @@ Opções: `Americas` · `Europe` · `Asia-Pacific` · `Middle East & India`
 | Região | Idiomas oferecidos |
 |---|---|
 | Americas | Portuguese (BR) · English · Spanish |
-| Europe | Portuguese (PT) · German · Dutch · Italian · French · English · Spanish |
+| Europe | Portuguese (PT) · German · Dutch · Polish · Italian · French · English · Spanish |
 | Asia-Pacific | Chinese (Simplified) · Chinese (Traditional) · Japanese · Korean · Bahasa Indonesia · Bahasa Malaysia · Vietnamese |
 | Middle East & India | Modern Standard Arabic · Hindi · English |
 
@@ -51,9 +51,9 @@ perguntas e vá direto para as de variante abaixo — não pergunte à toa.
   Se ele já escolheu BR ou PT, **não repita a pergunta**.
 - Se a resposta for **Chinese (Traditional)**, pergunte já em chinês tradicional:
   *"這份稿件是給台灣還是香港？"* — TW e HK usam formas e vocabulário diferentes (ver tabela).
-- Se a resposta for **German**, **Dutch** ou **French**, não pergunte nada extra: trate
-  o tratamento formal/informal (du/Sie, je-jij/u, tu/vous) como item de **consistência**
-  🟡 — sinalize se a peça misturar os dois, sem impor um deles.
+- Se a resposta for **German**, **Dutch**, **Polish** ou **French**, não pergunte nada extra:
+  trate o tratamento formal/informal (du/Sie, je-jij/u, ty vs Pan/Pani, tu/vous) como item de
+  **consistência** 🟡 — sinalize se a peça misturar os dois, sem impor um deles.
 - **Bahasa Indonesia e Bahasa Malaysia são idiomas SEPARADOS** — nunca trate como um
   "malaio" só. Se o usuário disser só "Malay", pergunte qual dos dois.
 - NÃO peça arquivo. NÃO peça upload. O material a revisar é o que está aberto no canvas.
@@ -76,6 +76,7 @@ Rótulos das notas por idioma:
 | Español | Dice: | Debe decir: | Obs.: |
 | Deutsch | Steht da: | Richtig: | Hinweis: |
 | Nederlands | Er staat: | Moet zijn: | Opm.: |
+| Polski | Jest: | Powinno być: | Uwaga: |
 | Italiano | Dice: | Corretto: | Nota: |
 | Français | Écrit : | Correct : | Note : |
 | Bahasa Indonesia | Tertulis: | Seharusnya: | Cat.: |
@@ -132,6 +133,7 @@ Exemplo (usuário escolheu English): `Reads: "recieve" → Should be: "receive" 
 | Español | RAE + país-alvo (tabela abaixo) | acentos, ñ, ¿ ¡ de abertura, 2ª pessoa por país |
 | Deutsch | Rechtschreibung (Duden) | ß vs ss (ss na Suíça), substantivos sempre em maiúscula, umlauts, palavras compostas |
 | Nederlands | Groene Boekje (Woordenlijst Nederlandse Taal) | tussen-n em compostos (pannenkoek), ij vs ei, regra do dt em verbos (word/wordt, gebeurd/gebeurt), trema (coördinatie, geïnteresseerd), compostos escritos numa palavra só |
+| Polski | Rada Języka Polskiego / Wielki słownik ortograficzny PWN | **ó vs u** e **ż vs rz** são os erros nº 1 — mesmo som, grafia diferente (góra/gura, może/morze); ch vs h; ogonki e kreski que somem na digitação (ą ę ć ń ó ś ź ż ł); dias, meses e adjetivos de nacionalidade em **minúscula** (polski, não Polski); aspas polonesas („ ") diferentes das inglesas; ty vs Pan/Pani misturados = 🟡 |
 | Italiano | Accademia della Crusca | acentos (à è é ì ò ù), apóstrofos (un'amica / un amico), consoantes duplas |
 | Français | Académie française | acentos, cedilha, apóstrofos, espaço fino antes de `; : ! ?` e dentro de `« »` |
 | Bahasa Indonesia | KBBI / EYD (Badan Bahasa) | afixos (me-, di-, -kan, -nya), grafia de estrangeirismos (aktivitas, kualitas, universitas), prefixo colado vs separado |
@@ -190,7 +192,7 @@ Os dois precisam ser carregados; usar um peso não carregado derruba a nota.
 
 | Idioma | Família (pesos Regular + Bold) |
 |---|---|
-| PT (BR/PT), EN, ES, DE, NL, IT, FR, ID, MS, VI | Noto Sans |
+| PT (BR/PT), EN, ES, DE, NL, PL, IT, FR, ID, MS, VI | Noto Sans |
 | 简体中文 | Noto Sans SC |
 | 繁體中文 (Taiwan) | Noto Sans TC |
 | 繁體中文 (Hong Kong) | Noto Sans HK |
