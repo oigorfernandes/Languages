@@ -104,14 +104,37 @@ Exemplo (usuário escolheu English): `Reads: "recieve" → Should be: "receive" 
    - Se não houver seleção: liste as páginas do arquivo e confirme com o usuário qual
      revisar (uma pergunta curta, no idioma escolhido). Nunca assuma que a página
      atual do script é a que o usuário está olhando.
-2. Percorra recursivamente os nós, capturando `node.type === "TEXT"` e o valor de
-   `node.characters`. Guarde para cada achado: **id do nó, id da PÁGINA que contém o nó**
-   (suba por `node.parent` até encontrar o nó de tipo `PAGE`), o texto e a posição
-   (`absoluteBoundingBox`). O id da página é obrigatório — é ele que garante que a
-   nota nasça no lugar certo.
-3. Texto vivo (text nodes) é a fonte exata — leia com precisão.
-4. Texto **achatado dentro de imagens/rasters**: leia visualmente o layer renderizado
-   e sinalize; se estiver ilegível, avise em vez de chutar (nunca invente).
+2. Percorra recursivamente os nós e monte **DUAS listas, não uma**:
+   - **Texto vivo:** nós com `node.type === "TEXT"` e o valor de `node.characters`.
+   - **Arte achatada:** todo nó que carrega pixel em vez de texto — fills do tipo
+     `IMAGE`, mais `VECTOR`, `BOOLEAN_OPERATION` e grupos/instâncias que não contenham
+     nenhum TEXT dentro. **Se a varredura só coletar TEXT, a copy achatada nunca chega
+     a ser lida** — e é exatamente ali que o erro sobrevive à revisão humana.
+   Para cada item das duas listas guarde: **id do nó, id da PÁGINA que contém o nó**
+   (suba por `node.parent` até encontrar o nó de tipo `PAGE`), o texto (quando houver)
+   e a posição (`absoluteBoundingBox`). O id da página é obrigatório — é ele que
+   garante que a nota nasça no lugar certo.
+3. Texto vivo (text nodes) é a fonte exata — leia com precisão, sem renderizar.
+4. **Arte achatada: ler é olhar, e olhar exige resolução.** Procedimento obrigatório —
+   "leia visualmente" sozinho faz o agente passar o olho sem enxergar:
+   - Renderize com **escala explícita**: `await node.exportAsync({ format: "PNG",
+     constraint: { type: "SCALE", value: 2 } })` ou `node.screenshot({ scale: 2 })`.
+     **Nunca use o padrão** — ele cai para 0,5x e limita a 1024px, o que apaga
+     justamente o texto pequeno.
+   - **Leia em duas passadas.** Primeiro a peça inteira, para headline e blocos grandes.
+     Depois, **separadamente e com escala maior (3x ou mais), as áreas de texto miúdo**:
+     rodapé legal, asterisco, disclaimer, letra pequena em selo ou chamada. É onde o
+     erro se esconde e é onde a resolução baixa cega.
+   - Peça muito grande: recorte em faixas e leia faixa por faixa. Uma arte 9:16 inteira
+     num quadro só deixa o rodapé ilegível.
+5. **Cruze arte com texto vivo.** Quando a mesma mensagem aparece nos dois lugares
+   (spec ou copy no layer de texto e a arte renderizada), **compare palavra por palavra**.
+   Divergência entre os dois é erro real e já apareceu em produção: o texto vivo dizia
+   "de 2026" e a arte dizia "del 2026".
+6. **Declare a cobertura — silêncio não é "limpo".** Se alguma arte não pôde ser lida
+   com nitidez, diga no resumo quais peças ficaram sem verificação visual e recomende
+   conferência manual. **Nunca reporte como limpa uma peça cujo texto você não
+   conseguiu ler** — ausência de achado e ausência de leitura são coisas diferentes.
 
 ## Regras de revisão
 
@@ -334,8 +357,9 @@ por isso a conferência de fonte do passo 2 é obrigatória, não opcional.
 
 **Regras técnicas gerais:** cores em range 0–1; crie as notas em lotes pequenos
 (até ~8 por execução) e valide entre lotes; ao final, retorne os `createdNodeIds`
-de todas as notas e faça um resumo no chat (placar: nº de erros 🔴 e nº de
-confirmações 🟡), também no idioma escolhido.
+de todas as notas e faça um resumo no chat (placar: nº de erros 🔴, nº de
+confirmações 🟡 e, **se alguma arte não pôde ser lida com nitidez, nº de peças sem
+verificação visual**, nomeando quais), também no idioma escolhido.
 
 ## Guardrails
 
